@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+
+    <meta charset="UTF-8">
+    <title>Dashboard | INTI Online Tutor System</title>
+    <!--Line-Awesome Style-->
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/font-awesome-line-awesome/css/all.min.css">
+    <!--Css Style -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2><span class="las la-atom"></span>INTI Online Tutor</h2>
+        </div>
+
+        <div class="sidebar-menu">
+            <ul>
+                <li>
+                    <a href="{% url 'student_dashboard' %}" class="active"><span class="las la-home"></span>
+                    <span>Student Dashboard</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'student_tutorials' %}"><span class="las la-book"></span>
+                    <span>Lessons</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'student_list_quiz' %}"><span class="las la-certificate"></span>
+                    <span>Quiz</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'student_profile' %}"><span class="las la-fingerprint"></span>
+                    <span>Profile</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'logout' %}"><span class="las la-key"></span>
+                    <span>Logout</span></a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <div class="header-title">
+                <h2>
+                    <label for="">
+                    <span class="las la-bars"></span>
+                </label>
+                    Dashboard
+                </h2>
+            </div>
+
+            <div class="search-wrapper">
+                <span class="las la-search"></span>
+                <input type="search" placeholder="Search here!" />
+            </div>
+
+            <div class="user-wrapper">
+                <img src="{% static 'images/user.png' %}" width="40px" height="40px" alt="">
+                <div>
+                    <h4>{{user.username}}</h4>
+                    <small>Logged In</small>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="cards">
+                <div class="card-single">
+                    <div>
+                        <h1>{{ course }}</h1>
+                        <span>Courses</span>
+                    </div>
+                    <div>
+                        <span class="las la-clipboard-list"></span>
+                    </div>
+                </div>
+
+                <div class="card-single">
+                    <div>
+                        <h1>{{ student }}</h1>
+                        <span>Students</span>
+                    </div>
+                    <div>
+                        <span class="las la-graduation-cap"></span>
+                    </div>
+                </div>
+
+                <div class="card-single">
+                    <div>
+                        <h1>{{ lecturer }}</h1>
+                        <span>Lecturers</span>
+                    </div>
+                    <div>
+                        <span class="las la-lightbulb"></span>
+                    </div>
+                </div>
+
+                <div class="card-single">
+                    <div>
+                        <h1>{{ users }}</h1>
+                        <span>All Users</span>
+                    </div>
+                    <div>
+                        <span class="las la-users"></span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

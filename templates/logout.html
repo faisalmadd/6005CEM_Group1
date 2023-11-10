@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block content %}
+    <title>Logout | INTI Online Tutor System</title>
+    <div class="card" style="width: 23rem; left: 40%; margin-top: 200px;">
+      <div class="card-body">
+        <h5 class="card-title">Logged Out Successfully</h5>
+        <p class="card-text">You have been successfully logged out from the system.</p>
+        <center><a href="{% url 'login_form' %}" class="card-link">Log in again</a></center>
+      </div>
+    </div>
+{% endblock %}

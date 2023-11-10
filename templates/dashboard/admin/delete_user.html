@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+
+    <meta charset="UTF-8">
+    <title>Manage Users | INTI Online Tutor System</title>
+    <!--Line-Awesome Style-->
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/font-awesome-line-awesome/css/all.min.css">
+    <!--Css Style -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2><span class="las la-atom"></span>INTI Online Tutor</h2>
+        </div>
+
+        <div class="sidebar-menu">
+            <ul>
+                <li>
+                    <a href="{% url 'admin_dashboard' %}"><span class="las la-home"></span>
+                    <span>Admin Dashboard</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'admin_add_lecturer' %}"><span class="las la-lightbulb"></span>
+                    <span>Add Lecturer</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'admin_add_student' %}"><span class="las la-graduation-cap"></span>
+                    <span>Add Student</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'manage_users' %}" class="active"><span class="las la-users"></span>
+                    <span>Manage Users</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'logout' %}"><span class="las la-key"></span>
+                    <span>Logout</span></a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <div class="header-title">
+                <h2>
+                    <label for="">
+                    <span class="las la-bars"></span>
+                </label>
+                    Dashboard
+                </h2>
+            </div>
+
+            <div class="search-wrapper">
+                <span class="las la-search"></span>
+                <input type="search" placeholder="Search here!" />
+            </div>
+
+            <div class="user-wrapper">
+                <img src="{% static 'images/user.png' %}" width="40px" height="40px" alt="">
+                <div>
+                    <h4>{{user.username}}</h4>
+                    <small>Logged In</small>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="container-fluid">
+        <div class="row">
+          <div class="col-12 mb-3">
+          <div class="col-12 mb-3">
+              <ol class="breadcrumb">
+                  <li class="breadcrumb-item">
+                      <center><legend href="#" style="color: var(--main-color); font-size: 1.3rem;">Confirmation of User Deletion</legend></center>
+                  </li>
+              </ol>
+              <div class="card mb-3">
+                  <div class="card-header" style="color: var(--main-color); font-size: 1.3rem;">
+                      <i class="las la-table" style="color: var(--main-color); font-size: 1.3rem;"></i>
+                      Details of {{ object.username }}.
+                  </div><br>
+                  <div class="card-body">
+                      {% for message in messages %}
+                      <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+                          {{ message }}
+                      </div>
+                      {% endfor %}
+
+                      <div class="row">
+                          <div class="col-12">
+                              <form method="post">
+                                  {% csrf_token %}
+                                  <div class="alert alert-warning" role="alert">
+                                      Are you sure to delete the user {{ object }} ?
+                                  </div><br>
+                                  <input type="submit" class="btn" style="color: black; background: #99edc3; height: 2rem; width: 10rem; border-radius: 1rem;" value="Yes, delete it" />
+                                  <a class="btn" href="{% url 'manage_users' %}" style="color: var(--main-color);">Back to Manage Users</a>
+                              </form>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+        </main>
+    </div>
+</body>
+</html>

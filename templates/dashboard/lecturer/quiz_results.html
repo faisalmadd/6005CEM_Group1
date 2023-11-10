@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    {% load crispy_forms_tags humanize %}
+
+    <meta charset="UTF-8">
+    <title>Quiz Results | INTI Online Tutor System</title>
+    <!--Line-Awesome Style-->
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/line-awesome/1.3.0/css/line-awesome.min.css">
+    <link rel="stylesheet" href="https://maxst.icons8.com/vue-static/landings/line-awesome/font-awesome-line-awesome/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <!--Css Style -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <h2><span class="las la-atom"></span>INTI Online Tutor</h2>
+        </div>
+
+        <div class="sidebar-menu">
+            <ul>
+                <li>
+                    <a href="{% url 'lecturer_dashboard' %}"><span class="las la-home"></span>
+                    <span>Lecturer Dashboard</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'add_course' %}"><span class="las la-plus"></span>
+                    <span>Add Course</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'add_tutorial' %}"><span class="las la-plus"></span>
+                    <span>Add Tutorial</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'add_notes' %}"><span class="las la-plus"></span>
+                    <span>Add Notes</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'list_tutorial' %}"><span class="las la-book"></span>
+                    <span>Tutorials</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'list_quiz' %}" class="active"><span class="las la-certificate"></span>
+                    <span>Quizzes</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'lecturer_profile' %}"><span class="las la-fingerprint"></span>
+                    <span>Profile</span></a>
+                </li>
+                <li>
+                    <a href="{% url 'logout' %}"><span class="las la-key"></span>
+                    <span>Logout</span></a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <div class="header-title">
+                <h2>
+                    <label for="">
+                    <span class="las la-bars"></span>
+                </label>
+                    Dashboard
+                </h2>
+            </div>
+
+            <div class="search-wrapper">
+                <span class="las la-search"></span>
+                <input type="search" placeholder="Search here!" />
+            </div>
+
+            <div class="user-wrapper">
+                <img src="{% static 'images/user.png' %}" width="40px" height="40px" alt="">
+                <div>
+                    <h4>{{user.username}}</h4>
+                    <small>Logged In</small>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="container-fluid">
+            <div class="card mb-3">
+                <div class="card-header" style="color: var(--main-color); font-size: 1.3rem;">
+                    <i class="fas fa-table text-primary"></i>
+                    Quiz Results
+                </div>
+                <div class="card-body">
+               <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                  <li class="breadcrumb-item"><a href="{% url 'list_quiz' %}">My Quizzes</a></li>
+                  <li class="breadcrumb-item"><a href="{% url 'update_quiz' quiz.pk %}">{{ quiz.name }}</a></li>
+                  <li class="breadcrumb-item active" aria-current="page">Results</li>
+                </ol>
+              </nav>
+              <h2 class="mb-3">{{ quiz.name }} Results</h2>
+
+              <div class="card">
+                <div class="card-header">
+                  <strong>Taken Quizzes &emsp;</strong>
+                  <span class="badge badge-pill badge-primary float-right"style="color: var(--main-color); font-size: 1rem;">Average Score: {{ quiz_score.average_score|default_if_none:0.0 }}</span>
+                </div>
+                <table class="table mb-0">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Date</th>
+                      <th>Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for taken_quiz in taken_quizzes %}
+                      <tr>
+                        <td>{{ taken_quiz.student.user.username }}</td>
+                        <td>{{ taken_quiz.date|naturaltime }}</td>
+                        <td>{{ taken_quiz.score }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+                <div class="card-footer text-muted">
+                  Total respondents: <strong>{{ total_taken_quizzes }}</strong>
+                </div>
+              </div>
+
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        </main>
+    </div>
+</body>
+</html>

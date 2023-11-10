@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+
+{% block content %}
+    <title>Register Page | INTI Online Tutor System</title>
+    <!--Css Style -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}" type="text/css">
+    <div class="container" style="margin-top: 50px;">
+    <form action="" method="POST">
+      {% csrf_token %}
+      <fieldset class="form-group">
+          <legend class="border-bottom mb-4" style="color: white;">Register now to join the community!</legend>
+          {{ form|crispy }}
+      </fieldset><br>
+      <div class="form-group" id="signup-button">
+          <button class="btn" style="color: white;">Register Now!</button>
+      </div>
+      <div class="form-group">
+          <small class="text-muted ml-2">Already have an account? <a href="{% url 'login_form' %}">Sign In</a></small>
+      </div>
+    </form>
+    </div>
+{% endblock %}

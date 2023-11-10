@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+    <title>Home | INTI Online Tutor System</title>
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <div class="container">
+            <div class="row g-0">
+                <div class="col-sm-6 col-md-8" id="header-text">
+                  <h1 id="header-h1">INTI College <br> Online Tutor System. </h1>
+                  <p id="header-paragraph">An online tutor system, <br> for INTI Lecturers & Students</p>
+                  <a href="{% url 'login_form' %}" class="btn" style="color: white; background-color: #fd5e14;"type="submit" id="body-link-row">Login now!</a>
+    </div>
+{% endblock content %}
