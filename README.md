@@ -1,7 +1,5 @@
 # INTI Online Tutor System
 
-The online tutor system was developed as part of INT4007CEM Computer Science Activity Led Learning 2 project. 
-
 The system has 3 user types: Admin, Lecturer & Student.
 
 Key features are:
