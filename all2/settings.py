@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'captcha',
     'widget_tweaks',
     'bootstrap_modal_forms',
-    'bootstrap3',
+    'crispy_bootstrap4',
+    'bootstrap4',
     'django_forms_bootstrap',
 
 ]
