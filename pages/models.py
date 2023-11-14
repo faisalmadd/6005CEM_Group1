@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from embed_video.fields import EmbedVideoField
+from utils.crypto_utils import encrypt_data, decrypt_data
 
 
 # Create your models here.

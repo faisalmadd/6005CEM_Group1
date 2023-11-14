@@ -1,3 +1,6 @@
+import base64
+import binascii
+
 from django.contrib.auth import login, authenticate
 from django.contrib import auth
 from django.contrib.auth.forms import UserChangeForm
@@ -14,6 +17,10 @@ from django.views.generic import CreateView, ListView, DeleteView, UpdateView, D
 from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, Course, Tutorial, Notes, Comments
 from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStudentRegistrationForm, QuestionForm, \
     BaseAnswerInlineFormSet, CommentForm
+from utils.crypto_utils import encrypt_data, decrypt_data, generate_key, generate_initialization_vector
+
+key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
+iv = b'Q\x85\xfe`@\xcd\xbc\xf2\x99\x13\x05qy)\x81X'
 
 
 # Create your views here.
@@ -31,10 +38,20 @@ class StudentRegisterView(CreateView):
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form):
+        # Encrypt email using the generated key and initialization vector
+        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
+        print(encrypted_email)
+
+        # Save the encrypted email and other form data
         user = form.save()
-        login(self.request, user)
-        user = form.cleaned_data.get('username')
-        messages.success(self.request, f'Hi {user}, your account was created successfully!')
+        user.email = base64.b64encode(encrypted_email).decode('utf-8')  # Encode base64 to store as string in database
+        print(user.email)
+        user.save()
+
+        decrypted_data = decrypt_data(encrypted_email, key, iv)
+        print("Decrypted Data:", decrypted_data)
+
+        messages.success(self.request, f'Hi {user.username}, your account was created successfully!')
         return redirect('home')
 
 
@@ -208,10 +225,28 @@ class ManageUserView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'dashboard/admin/manage_users.html'
     context_object_name = 'users'
-    paginated_by = 10
+    paginate_by = 10
 
     def get_queryset(self):
-        return User.objects.order_by('-id')
+        queryset = User.objects.order_by('-id')
+        decrypted_users = self.decrypt_user_emails(queryset)
+        return decrypted_users
+
+    def decrypt_user_emails(self, queryset):
+        decrypted_users = []
+
+        for user in queryset:
+            try:
+                # Padding the base64-encoded string if needed
+                padded_email = user.email + '=' * ((4 - len(user.email) % 4) % 4)
+                decrypted_email = decrypt_data(base64.b64decode(padded_email), key, iv)
+                user.temp_decrypted_email = decrypted_email  # Temporary field to store decrypted email
+                decrypted_users.append(user)
+            except binascii.Error as e:
+                # Handle invalid base64-encoded strings
+                print(f"Error decoding email for user {user.username}: {e}")
+
+        return decrypted_users
 
 
 class DeleteUser(SuccessMessageMixin, DeleteView):
