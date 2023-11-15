@@ -1,13 +1,12 @@
 import base64
 import binascii
-
 from django.contrib.auth import login, authenticate
 from django.contrib import auth
 from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db import transaction
-from django.db.models import Count, Avg
+from django.db.models import Count, Avg, QuerySet
 from django.forms import inlineformset_factory
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
@@ -17,8 +16,9 @@ from django.views.generic import CreateView, ListView, DeleteView, UpdateView, D
 from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, Course, Tutorial, Notes, Comments
 from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStudentRegistrationForm, QuestionForm, \
     BaseAnswerInlineFormSet, CommentForm
-from utils.crypto_utils import encrypt_data, decrypt_data, generate_key, generate_initialization_vector
+from utils.crypto_utils import encrypt_data, decrypt_data
 
+# Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
 iv = b'Q\x85\xfe`@\xcd\xbc\xf2\x99\x13\x05qy)\x81X'
 
@@ -38,7 +38,7 @@ class StudentRegisterView(CreateView):
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form):
-        # Encrypt email using the generated key and initialization vector
+        # Encrypt email using the key and initialization vector
         encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
         print(encrypted_email)
 
@@ -65,9 +65,22 @@ class LecturerRegisterView(CreateView):
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form):
+        # Encrypt email using the key and initialization vector
+        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
+        print(encrypted_email)
+
+        # Save the encrypted email and other form data
         user = form.save()
-        login(self.request, user)
-        return redirect('lecturer_dashboard')
+        user.email = base64.b64encode(encrypted_email).decode('utf-8')  # Encode base64 to store as string in database
+        print(user.email)
+        user.save()
+
+        decrypted_data = decrypt_data(encrypted_email, key, iv)
+        print("Decrypted Data:", decrypted_data)
+
+        messages.success(self.request, f'{user.username} account was created successfully!')
+
+        return redirect('admin_dashboard')
 
 
 class AdminStudentRegisterView(CreateView):
@@ -80,10 +93,22 @@ class AdminStudentRegisterView(CreateView):
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form):
+        # Encrypt email using the key and initialization vector
+        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
+        print(encrypted_email)
+
+        # Save the encrypted email and other form data
         user = form.save()
-        login(self.request, user)
-        # return redirect('learner')
-        return redirect('student_dashboard')
+        user.email = base64.b64encode(encrypted_email).decode('utf-8')  # Encode base64 to store as string in database
+        print(user.email)
+        user.save()
+
+        decrypted_data = decrypt_data(encrypted_email, key, iv)
+        print("Decrypted Data:", decrypted_data)
+
+        messages.success(self.request, f'{user.username} account was created successfully!')
+
+        return redirect('admin_dashboard')
 
 
 def login_form(request):
@@ -127,8 +152,27 @@ def lecturer_create_profile(request):
         user_id = current_user.id
         print(user_id)
 
-        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=contact, first_name=first_name, email=email,
-                                                  last_name=last_name, bio=bio, dob=dob, profile_pic=profile_pic)
+        # Encrypt fields using the key and initialization vector
+        encrypted_first_name = encrypt_data(first_name, key, iv)
+        encrypted_last_name = encrypt_data(last_name, key, iv)
+        encrypted_dob = encrypt_data(dob, key, iv)
+        encrypted_bio = encrypt_data(bio, key, iv)
+        encrypted_contact = encrypt_data(contact, key, iv)
+        encrypted_email = encrypt_data(email, key, iv)
+        print(encrypted_email)
+
+        encoded_first_name = base64.b64encode(encrypted_first_name).decode('utf-8')
+        encoded_last_name = base64.b64encode(encrypted_last_name).decode('utf-8')
+        encoded_dob = base64.b64encode(encrypted_dob).decode('utf-8')
+        encoded_bio = base64.b64encode(encrypted_bio).decode('utf-8')
+        encoded_contact = base64.b64encode(encrypted_contact).decode('utf-8')
+        encoded_email = base64.b64encode(encrypted_email).decode('utf-8')
+        print(encoded_email)
+
+        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=encoded_contact,
+                                                  first_name=encoded_first_name, email=encoded_email,
+                                                  last_name=encoded_last_name, bio=encoded_bio, dob=encoded_dob,
+                                                  profile_pic=profile_pic)
         messages.success(request, 'Your Profile Was Created Successfully')
         return redirect('lecturer_profile')
     else:
@@ -143,8 +187,45 @@ def lecturer_user_profile(request):
     current_user = request.user
     user_id = current_user.id
     users = Profile.objects.filter(user_id=user_id)
-    users = {'users': users}
-    return render(request, 'dashboard/lecturer/view_profile.html', users)
+    print(users)
+
+    if not users:
+        # Handle the case where no users are found
+        context = {'users': users}
+        return render(request, 'dashboard/lecturer/view_profile.html', context)
+    else:
+        try:
+            # Access the first user in the queryset
+            user = users[0]
+            # Decrypt necessary fields
+            decrypted_email = decrypt_data(base64.b64decode(user.email), key, iv)
+            decrypted_first_name = decrypt_data(base64.b64decode(user.first_name), key, iv)
+            decrypted_last_name = decrypt_data(base64.b64decode(user.last_name), key, iv)
+            decrypted_dob = decrypt_data(base64.b64decode(user.dob), key, iv)
+            decrypted_bio = decrypt_data(base64.b64decode(user.bio), key, iv)
+            decrypted_contact = decrypt_data(base64.b64decode(user.contact), key, iv)
+
+            # Construct user_data dictionary
+            user_data = {
+                'username': current_user.username,
+                'user_id': user.user_id,
+                'email': decrypted_email,
+                'first_name': decrypted_first_name,
+                'last_name': decrypted_last_name,
+                'dob': decrypted_dob,
+                'bio': decrypted_bio,
+                'contact': decrypted_contact,
+                'profile_pic': user.profile_pic,
+            }
+            print(user_data)
+
+            context = {'users': user_data}
+            print(context)
+            return render(request, 'dashboard/lecturer/view_profile.html', context)
+
+        except binascii.Error as e:
+            # Handle invalid base64-encoded strings
+            print(f"Error decoding email for user {user_id}: {e}")
 
 
 def student_create_profile(request):
@@ -160,8 +241,28 @@ def student_create_profile(request):
         user_id = current_user.id
         print(user_id)
 
-        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=contact, first_name=first_name, email=email,
-                                                  last_name=last_name, bio=bio, dob=dob, profile_pic=profile_pic)
+        # Encrypt fields using the key and initialization vector
+        encrypted_first_name = encrypt_data(first_name, key, iv)
+        encrypted_last_name = encrypt_data(last_name, key, iv)
+        encrypted_dob = encrypt_data(dob, key, iv)
+        encrypted_bio = encrypt_data(bio, key, iv)
+        encrypted_contact = encrypt_data(contact, key, iv)
+        encrypted_email = encrypt_data(email, key, iv)
+        print(encrypted_email)
+
+        encoded_first_name = base64.b64encode(encrypted_first_name).decode('utf-8')
+        encoded_last_name = base64.b64encode(encrypted_last_name).decode('utf-8')
+        encoded_dob = base64.b64encode(encrypted_dob).decode('utf-8')
+        encoded_bio = base64.b64encode(encrypted_bio).decode('utf-8')
+        encoded_contact = base64.b64encode(encrypted_contact).decode('utf-8')
+        encoded_email = base64.b64encode(encrypted_email).decode('utf-8')
+        print(encoded_email)
+
+        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=encoded_contact,
+                                                  first_name=encoded_first_name, email=encoded_email,
+                                                  last_name=encoded_last_name, bio=encoded_bio, dob=encoded_dob,
+                                                  profile_pic=profile_pic)
+        messages.success(request, 'Your Profile Was Created Successfully')
         return redirect('student_profile')
     else:
         current_user = request.user
@@ -175,8 +276,45 @@ def student_user_profile(request):
     current_user = request.user
     user_id = current_user.id
     users = Profile.objects.filter(user_id=user_id)
-    users = {'users': users}
-    return render(request, 'dashboard/student/view_profile.html', users)
+    print(users)
+
+    if not users:
+        # Handle the case where no users are found
+        context = {'users': users}
+        return render(request, 'dashboard/student/view_profile.html', context)
+    else:
+        try:
+            # Access the first user in the queryset
+            user = users[0]
+            # Decrypt necessary fields
+            decrypted_email = decrypt_data(base64.b64decode(user.email), key, iv)
+            decrypted_first_name = decrypt_data(base64.b64decode(user.first_name), key, iv)
+            decrypted_last_name = decrypt_data(base64.b64decode(user.last_name), key, iv)
+            decrypted_dob = decrypt_data(base64.b64decode(user.dob), key, iv)
+            decrypted_bio = decrypt_data(base64.b64decode(user.bio), key, iv)
+            decrypted_contact = decrypt_data(base64.b64decode(user.contact), key, iv)
+
+            # Construct user_data dictionary
+            user_data = {
+                'username': current_user.username,
+                'user_id': user.user_id,
+                'email': decrypted_email,
+                'first_name': decrypted_first_name,
+                'last_name': decrypted_last_name,
+                'dob': decrypted_dob,
+                'bio': decrypted_bio,
+                'contact': decrypted_contact,
+                'profile_pic': user.profile_pic,
+            }
+            print(user_data)
+
+            context = {'users': user_data}
+            print(context)
+            return render(request, 'dashboard/student/view_profile.html', context)
+
+        except binascii.Error as e:
+            # Handle invalid base64-encoded strings
+            print(f"Error decoding email for user {user_id}: {e}")
 
 
 def student_dashboard(request, *args, **kwargs):

@@ -78,60 +78,68 @@
                 <div class="col-sm-6" style="padding-top: 20px">
                       <div class="card mb-3">
                                {% if users %}
-                               {% for user in users %}
                           <center><strong>
                               <div style="font-size: 1.5rem;">
-                          <a>{{ user.first_name }}  {{ user.last_name }}'s Profile</a></div>
+                          <a>{{ users.first_name }}  {{ users.last_name }}'s Profile</a></div>
                             </strong></center>
                                 <div class="card-body">
-                                     {% for message in messages %}
-                                        <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
-                                            {{ message }}
-                                        </div>
-                                    {% endfor %}
+                                {% for message in messages %}
+                                    <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
 
-                                     {% if user.profile_pic %}
-                                        <center><img src="{{ user.profile_pic.url }}" class="img-thumbnail" alt="{{ user.user.username }}" style="height: 236px; width: 304px"></center><br>
-                                    {% else %}
-                                                    <span class="text-muted">No Profile Picture for {{ user.user.username }}</span>
-                                    {% endif %}
+                                    {% if users.profile_pic %}
+                                            <center>
+                                                <img src="{{ users.profile_pic.url }}" class="img-thumbnail" alt="{{ user.user.username }}" style="height: 236px; width: 304px">
+                                            </center>
+                                            <br>
+                                        {% else %}
+                                            <span class="text-muted">No Profile Picture for {{ users.username }}</span>
+                                        {% endif %}
 
-                                        <table class="table table-bordered">
-                                            <tbody>
-                                                <tr>
-                                                    <td>Username</td>
-                                                    <td>{{ user.user.username }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>First Name</td>
-                                                    <td>{{ user.first_name }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Last Name</td>
-                                                    <td>{{ user.last_name }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Phone Number</td>
-                                                    <td>{{ user.contact }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Birthday</td>
-                                                    <td>{{ user.dob }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td>Bio</td>
-                                                    <td>{{ user.bio }}</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                        </div>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <tbody>
+                                            <tr>
+                                                <td class="fw-bold">Username</td>
+                                                <td>{{ users.username }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="fw-bold">First Name</td>
+                                                <td>{{ users.first_name }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="fw-bold">Last Name</td>
+                                                <td>{{ users.last_name }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="fw-bold">Email</td>
+                                                <td>{{ users.email }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="fw-bold">Contact</td>
+                                                <td>{{ users.contact }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="fw-bold">Birthday</td>
+                                                <td>{{ users.dob }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="fw-bold">Bio</td>
+                                                <td>{{ users.bio }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                       </div>
                                       </div>
                                     </div>
                                   </div>
 
                 </div>
-                 {% endfor %}
                  {% else %}
                  <center><span><p class="text-danger">No profile created yet</p></span></center>
                  <center><a href="{% url 'student_create_profile' %}">Click here to create</center>
