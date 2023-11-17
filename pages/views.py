@@ -17,6 +17,7 @@ from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, C
 from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStudentRegistrationForm, QuestionForm, \
     BaseAnswerInlineFormSet, CommentForm
 from utils.crypto_utils import encrypt_data, decrypt_data
+from django_ratelimit.decorators import ratelimit
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -24,10 +25,12 @@ iv = b'Q\x85\xfe`@\xcd\xbc\xf2\x99\x13\x05qy)\x81X'
 
 
 # Create your views here.
+@ratelimit(key='ip', rate='5/m', block=True)
 def homepage_view(request, *args, **kwargs):
     return render(request, "home.html", {})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class StudentRegisterView(CreateView):
     model = User
     form_class = StudentRegistrationForm
@@ -55,6 +58,7 @@ class StudentRegisterView(CreateView):
         return redirect('home')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class LecturerRegisterView(CreateView):
     model = User
     form_class = LecturerRegistrationForm
@@ -83,6 +87,7 @@ class LecturerRegisterView(CreateView):
         return redirect('admin_dashboard')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class AdminStudentRegisterView(CreateView):
     model = User
     form_class = AdminStudentRegistrationForm
@@ -111,10 +116,12 @@ class AdminStudentRegisterView(CreateView):
         return redirect('admin_dashboard')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def login_form(request):
     return render(request, 'login.html')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def login_view(request, *args, **kwargs):
     if request.method == 'POST':
         username = request.POST['username']
@@ -135,10 +142,7 @@ def login_view(request, *args, **kwargs):
             return redirect('login_form')
 
 
-def contact_view(request, *args, **kwargs):
-    return render(request, "contact.html", {})
-
-
+@ratelimit(key='ip', rate='5/m', block=True)
 def lecturer_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -183,6 +187,7 @@ def lecturer_create_profile(request):
         return render(request, 'dashboard/lecturer/create_profile.html', users)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def lecturer_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -228,6 +233,7 @@ def lecturer_user_profile(request):
             print(f"Error decoding email for user {user_id}: {e}")
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def student_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -272,6 +278,7 @@ def student_create_profile(request):
         return render(request, 'dashboard/student/create_profile.html', users)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def student_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -317,6 +324,7 @@ def student_user_profile(request):
             print(f"Error decoding email for user {user_id}: {e}")
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def student_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -327,6 +335,7 @@ def student_dashboard(request, *args, **kwargs):
     return render(request, "dashboard/student/dashboard.html", context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def lecturer_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -337,6 +346,7 @@ def lecturer_dashboard(request, *args, **kwargs):
     return render(request, "dashboard/lecturer/dashboard.html", context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def admin_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -347,6 +357,7 @@ def admin_dashboard(request, *args, **kwargs):
     return render(request, "dashboard/admin/dashboard.html", context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def add_course(request):
     if request.method == 'POST':
         name = request.POST['name']
@@ -359,6 +370,7 @@ def add_course(request):
         return render(request, 'dashboard/lecturer/add_course.html')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class ManageUserView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'dashboard/admin/manage_users.html'
@@ -387,6 +399,7 @@ class ManageUserView(LoginRequiredMixin, ListView):
         return decrypted_users
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class DeleteUser(SuccessMessageMixin, DeleteView):
     model = User
     template_name = 'dashboard/admin/delete_user.html'
@@ -394,12 +407,14 @@ class DeleteUser(SuccessMessageMixin, DeleteView):
     success_message = 'User was deleted successfully!'
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def add_tutorial(request):
     courses = Course.objects.only('id', 'name')
     context = {'courses': courses}
     return render(request, 'dashboard/lecturer/add_tutorial.html', context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def post_tutorial(request):
     if request.method == 'POST':
         title = request.POST['title']
@@ -420,17 +435,20 @@ def post_tutorial(request):
         return redirect('add_tutorial')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def list_tutorial(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     tutorials = {'tutorials': tutorials}
     return render(request, 'dashboard/lecturer/list_tutorial.html', tutorials)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class LecturerTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/lecturer/tutorial_detail.html'
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class AddComment(CreateView):
     model = Comments
     form_class = CommentForm
@@ -444,6 +462,7 @@ class AddComment(CreateView):
     success_url = "/lecturer_tutorials/{tutorial_id}"
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class AddCommentStudent(CreateView):
     model = Comments
     form_class = CommentForm
@@ -457,12 +476,14 @@ class AddCommentStudent(CreateView):
     success_url = "/student_tutorials/{tutorial_id}"
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def add_notes(request):
     tutorials = Tutorial.objects.only('id', 'title')
     context = {'tutorials': tutorials}
     return render(request, 'dashboard/lecturer/add_notes.html', context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
@@ -480,6 +501,7 @@ def post_notes(request):
         return redirect('add_notes')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class AddQuizView(CreateView):
     model = Quiz
     fields = ('name', 'course')
@@ -492,6 +514,7 @@ class AddQuizView(CreateView):
         return redirect('update_quiz', quiz.pk)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class UpdateQuizView(UpdateView):
     model = Quiz
     fields = ('name', 'course')
@@ -508,6 +531,7 @@ class UpdateQuizView(UpdateView):
         return reverse('update_quiz', kwargs={'pk': self.object.pk})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def add_question(request, pk):
     # By filtering the quiz by the url keyword argument `pk` and by the owner, which is the logged in user,
     # we are protecting this view at the object-level. Meaning only the owner of quiz will be able to add questions
@@ -528,6 +552,7 @@ def add_question(request, pk):
         return render(request, 'dashboard/lecturer/add_question.html', {'quiz': quiz, 'form': form})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def update_question(request, quiz_pk, question_pk):
     # calls the Quiz model and get object from that. If that object or model doesn't exist it raise 404 error.
     quiz = get_object_or_404(Quiz, pk=quiz_pk, owner=request.user)
@@ -566,6 +591,7 @@ def update_question(request, quiz_pk, question_pk):
     })
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class QuizListView(ListView):
     model = Quiz
     ordering = ('name',)
@@ -580,6 +606,7 @@ class QuizListView(ListView):
         return queryset
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class DeleteQuestion(DeleteView):
     model = Question
     context_object_name = 'question'
@@ -604,6 +631,7 @@ class DeleteQuestion(DeleteView):
         return reverse('update_quiz', kwargs={'pk': question.quiz_id})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class DeleteQuiz(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -619,6 +647,7 @@ class DeleteQuiz(DeleteView):
         return self.request.user.quizzes.all()
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class ResultsView(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -642,17 +671,20 @@ class ResultsView(DeleteView):
         return self.request.user.quizzes.all()
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def student_tutorials(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     context = {'tutorials': tutorials}
     return render(request, 'dashboard/student/student_tutorials.html', context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class StudentTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/student/student_tutorial_detail.html'
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 class StudentQuizListView(ListView):
     model = Quiz
     ordering = ('name',)
@@ -664,53 +696,13 @@ class StudentQuizListView(ListView):
         return queryset
 
 
-'''def take_quiz(request, pk):
-    quiz = get_object_or_404(Quiz, pk=pk)
-    student = request.user.student
-
-    if student.quizzes.filter(pk=pk).exists():
-        return render(request, 'dashboard/student/taken_quiz.html')
-
-    total_questions = quiz.questions.count()
-    unanswered_questions = student.get_unanswered_questions(quiz)
-    total_unanswered_questions = unanswered_questions.count()
-    progress = 100 - round(((total_unanswered_questions - 1) / total_questions) * 100)
-    question = unanswered_questions.first()
-
-    if request.method == 'POST':
-        form = TakeQuizForm(question=question, data=request.POST)
-        if form.is_valid():
-            with transaction.atomic():
-                student_answer = form.save(commit=False)
-                student_answer.student = student
-                student_answer.save()
-                if student.get_unanswered_questions(quiz).exists():
-                    return redirect('take_quiz', pk)
-                else:
-                    correct_answers = student.quiz_answers.filter(answer__question__quiz=quiz, answer__is_correct=True).count()
-                    score = round((correct_answers / total_questions) * 100.0, 2)
-                    TakenQuiz.objects.create(student=student, quiz=quiz, score=score)
-                    if score < 50.0:
-                        messages.warning(request, 'Better luck next time! Your score for the quiz was %s.' % (score))
-                    else:
-                        messages.success(request, 'Congratulations! You completed the quiz! You scored %s points.' % (score))
-                    return redirect('student_quiz_list')
-    else:
-        form = TakeQuizForm(question=question)
-
-    return render(request, 'dashboard/student/quiz_form.html', {
-        'quiz': quiz,
-        'question': question,
-        'form': form,
-        'progress': progress
-    })'''
-
-
+@ratelimit(key='ip', rate='5/m', block=True)
 def quiz_view(request, pk):
     quiz = Quiz.objects.get(pk=pk)
     return render(request, 'dashboard/student/quiz_form.html', {'obj': quiz})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def quiz_data_view(request, pk):
     quiz = Quiz.objects.get(pk=pk)
     questions = []
@@ -724,10 +716,12 @@ def quiz_data_view(request, pk):
     })
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def save_quiz_view(request, pk):
     # print(request.POST)
     if is_ajax(request=request):
