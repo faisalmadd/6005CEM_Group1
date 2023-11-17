@@ -13,7 +13,7 @@ The system has 3 user types: Admin, Lecturer & Student.
 - Login & Registration
 - TLS encryption for data in-transit
 - AES encryption for data at-rest
-- Rate limiter to protect against DOS attacks
+- Rate limiter to protect against DOS attacks (5 requests/ip/minute)
 - Audit trail
 - Regular database backups & restore
 - Input Sanitation / Validation
