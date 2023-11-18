@@ -56,7 +56,7 @@ urlpatterns = [
     path('login/', login_view, name='login'),
     path('login_form/', login_form, name='login_form'),
     path('logout/', auth_view.LogoutView.as_view(template_name='logout.html'), name='logout'),
-    path('admin/', admin_site.urls),
+    path('admin/', admin.site.urls),
     path('captcha/', include('captcha.urls')),
 
     # admin pages
