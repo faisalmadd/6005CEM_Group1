@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from embed_video.fields import EmbedVideoField
+from utils.crypto_utils import encrypt_data, decrypt_data
 
 
 # Create your models here.
@@ -102,9 +103,9 @@ class Profile(models.Model):
     profile_pic = models.ImageField(upload_to='', default='no-img.jpg', blank=True)
     first_name = models.CharField(max_length=255, default='')
     last_name = models.CharField(max_length=255, default='')
-    email = models.EmailField(default='none@email.com')
+    email = models.CharField(max_length=50, default='none@email.com')
     contact = models.CharField(max_length=255, blank=True, null=True)
-    dob = models.DateField(default='24-06-1997')
+    dob = models.CharField(max_length=50, default='24-06-1997')
     bio = models.TextField(default='')
 
     def __str__(self):
