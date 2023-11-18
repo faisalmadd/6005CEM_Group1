@@ -18,6 +18,7 @@ from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStude
     BaseAnswerInlineFormSet, CommentForm
 from utils.crypto_utils import encrypt_data, decrypt_data
 from django_ratelimit.decorators import ratelimit
+from django.contrib.auth.decorators import login_required 
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -59,6 +60,7 @@ class StudentRegisterView(CreateView):
         return redirect('home')
 
 
+@login_required(login_url='login_form') 
 class LecturerRegisterView(CreateView):
     model = User
     form_class = LecturerRegistrationForm
@@ -89,6 +91,7 @@ class LecturerRegisterView(CreateView):
         return redirect('admin_dashboard')
 
 
+@login_required(login_url='login_form') 
 class AdminStudentRegisterView(CreateView):
     model = User
     form_class = AdminStudentRegistrationForm
@@ -151,6 +154,7 @@ def login_view(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def lecturer_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -196,6 +200,7 @@ def lecturer_create_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def lecturer_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -242,6 +247,7 @@ def lecturer_user_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -287,6 +293,7 @@ def student_create_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -333,6 +340,7 @@ def student_user_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -344,6 +352,7 @@ def student_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def lecturer_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -355,6 +364,7 @@ def lecturer_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def admin_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -366,6 +376,7 @@ def admin_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_course(request):
     if request.method == 'POST':
         name = request.POST['name']
@@ -378,6 +389,7 @@ def add_course(request):
         return render(request, 'dashboard/lecturer/add_course.html')
 
 
+@login_required(login_url='login_form') 
 class ManageUserView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'dashboard/admin/manage_users.html'
@@ -408,6 +420,7 @@ class ManageUserView(LoginRequiredMixin, ListView):
         return decrypted_users
 
 
+@login_required(login_url='login_form') 
 class DeleteUser(SuccessMessageMixin, DeleteView):
     model = User
     template_name = 'dashboard/admin/delete_user.html'
@@ -416,6 +429,7 @@ class DeleteUser(SuccessMessageMixin, DeleteView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_tutorial(request):
     courses = Course.objects.only('id', 'name')
     context = {'courses': courses}
@@ -423,6 +437,7 @@ def add_tutorial(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def post_tutorial(request):
     if request.method == 'POST':
         title = request.POST['title']
@@ -444,17 +459,20 @@ def post_tutorial(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def list_tutorial(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     tutorials = {'tutorials': tutorials}
     return render(request, 'dashboard/lecturer/list_tutorial.html', tutorials)
 
 
+@login_required(login_url='login_form') 
 class LecturerTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/lecturer/tutorial_detail.html'
 
 
+@login_required(login_url='login_form') 
 class AddComment(CreateView):
     model = Comments
     form_class = CommentForm
@@ -469,6 +487,7 @@ class AddComment(CreateView):
     success_url = "/lecturer_tutorials/{tutorial_id}"
 
 
+@login_required(login_url='login_form') 
 class AddCommentStudent(CreateView):
     model = Comments
     form_class = CommentForm
@@ -484,6 +503,7 @@ class AddCommentStudent(CreateView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_notes(request):
     tutorials = Tutorial.objects.only('id', 'title')
     context = {'tutorials': tutorials}
@@ -491,6 +511,7 @@ def add_notes(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
@@ -508,6 +529,7 @@ def post_notes(request):
         return redirect('add_notes')
 
 
+@login_required(login_url='login_form') 
 class AddQuizView(CreateView):
     model = Quiz
     fields = ('name', 'course')
@@ -521,6 +543,7 @@ class AddQuizView(CreateView):
         return redirect('update_quiz', quiz.pk)
 
 
+@login_required(login_url='login_form') 
 class UpdateQuizView(UpdateView):
     model = Quiz
     fields = ('name', 'course')
@@ -541,6 +564,7 @@ class UpdateQuizView(UpdateView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_question(request, pk):
     # By filtering the quiz by the url keyword argument `pk` and by the owner, which is the logged in user,
     # we are protecting this view at the object-level. Meaning only the owner of quiz will be able to add questions
@@ -562,6 +586,7 @@ def add_question(request, pk):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def update_question(request, quiz_pk, question_pk):
     # calls the Quiz model and get object from that. If that object or model doesn't exist it raise 404 error.
     quiz = get_object_or_404(Quiz, pk=quiz_pk, owner=request.user)
@@ -615,6 +640,7 @@ class QuizListView(ListView):
         return queryset
 
 
+@login_required(login_url='login_form') 
 class DeleteQuestion(DeleteView):
     model = Question
     context_object_name = 'question'
@@ -643,6 +669,7 @@ class DeleteQuestion(DeleteView):
         return reverse('update_quiz', kwargs={'pk': question.quiz_id})
 
 
+@login_required(login_url='login_form') 
 class DeleteQuiz(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -660,6 +687,7 @@ class DeleteQuiz(DeleteView):
         return self.request.user.quizzes.all()
 
 
+@login_required(login_url='login_form') 
 class ResultsView(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -686,17 +714,20 @@ class ResultsView(DeleteView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_tutorials(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     context = {'tutorials': tutorials}
     return render(request, 'dashboard/student/student_tutorials.html', context)
 
 
+@login_required(login_url='login_form') 
 class StudentTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/student/student_tutorial_detail.html'
 
 
+@login_required(login_url='login_form') 
 class StudentQuizListView(ListView):
     model = Quiz
     ordering = ('name',)
