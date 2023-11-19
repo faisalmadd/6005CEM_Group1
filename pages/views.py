@@ -54,17 +54,15 @@ class StudentRegisterView(CreateView):
 
     def form_valid(self, form):
         # Encrypt email using the key and initialization vector
-        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
-        print(encrypted_email)
+        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)  # Encrypted email in bytes
+        print('Original Data:', form.cleaned_data['email'])  # Raw data from user input
+        print('Encrypted Data:', encrypted_email)  # Encrypted data in bytes
 
         # Save the encrypted email and other form data
         user = form.save()
         user.email = base64.b64encode(encrypted_email).decode('utf-8')  # Encode base64 to store as string in database
-        print(user.email)
+        print('Encoded Data:', user.email)  # Encoded data to be stored in database
         user.save()
-
-        decrypted_data = decrypt_data(encrypted_email, key, iv)
-        print("Decrypted Data:", decrypted_data)
 
         messages.success(self.request, f'Hi {user.username}, your account was created successfully!')
         return redirect('home')
@@ -325,7 +323,7 @@ def lecturer_user_profile(request):
             # Access the first user in the queryset
             user = users[0]
             # Decrypt necessary fields
-            decrypted_email = decrypt_data(base64.b64decode(user.email), key, iv)
+            decrypted_email = decrypt_data(base64.b64decode(current_user.email), key, iv)
             decrypted_first_name = decrypt_data(base64.b64decode(user.first_name), key, iv)
             decrypted_last_name = decrypt_data(base64.b64decode(user.last_name), key, iv)
             decrypted_dob = decrypt_data(base64.b64decode(user.dob), key, iv)
@@ -418,7 +416,7 @@ def student_user_profile(request):
             # Access the first user in the queryset
             user = users[0]
             # Decrypt necessary fields
-            decrypted_email = decrypt_data(base64.b64decode(user.email), key, iv)
+            decrypted_email = decrypt_data(base64.b64decode(current_user.email), key, iv)
             decrypted_first_name = decrypt_data(base64.b64decode(user.first_name), key, iv)
             decrypted_last_name = decrypt_data(base64.b64decode(user.last_name), key, iv)
             decrypted_dob = decrypt_data(base64.b64decode(user.dob), key, iv)
@@ -571,7 +569,7 @@ def post_tutorial(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 @user_passes_test(is_lecturer, login_url='login_form')
 def list_tutorial(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
@@ -816,7 +814,7 @@ class ResultsView(DeleteView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def student_tutorials(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     context = {'tutorials': tutorials}
