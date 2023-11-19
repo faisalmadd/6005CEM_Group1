@@ -36,12 +36,10 @@ class StudentRegisterView(CreateView):
     form_class = StudentRegistrationForm
     template_name = 'register.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_context_data(self, **kwargs):
         kwargs['user_type'] = 'student'
         return super().get_context_data(**kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def form_valid(self, form):
         # Encrypt email using the key and initialization vector
         encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
@@ -66,12 +64,10 @@ class LecturerRegisterView(CreateView):
     form_class = LecturerRegistrationForm
     template_name = 'dashboard/admin/add_lecturer.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_context_data(self, **kwargs):
         kwargs['user_type'] = 'lecturer'
         return super().get_context_data(**kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def form_valid(self, form):
         # Encrypt email using the key and initialization vector
         encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
@@ -97,12 +93,10 @@ class AdminStudentRegisterView(CreateView):
     form_class = AdminStudentRegistrationForm
     template_name = 'dashboard/admin/add_student.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_context_data(self, **kwargs):
         kwargs['user_type'] = 'student'
         return super().get_context_data(**kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def form_valid(self, form):
         # Encrypt email using the key and initialization vector
         encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
@@ -396,13 +390,11 @@ class ManageUserView(LoginRequiredMixin, ListView):
     context_object_name = 'users'
     paginate_by = 10
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_queryset(self):
         queryset = User.objects.order_by('-id')
         decrypted_users = self.decrypt_user_emails(queryset)
         return decrypted_users
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def decrypt_user_emails(self, queryset):
         decrypted_users = []
 
@@ -478,7 +470,6 @@ class AddComment(CreateView):
     form_class = CommentForm
     template_name = 'dashboard/lecturer/add_comment.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def form_valid(self, form):
         form.instance.user = self.request.user
         form.instance.tutorial_id = self.kwargs['pk']
@@ -493,7 +484,6 @@ class AddCommentStudent(CreateView):
     form_class = CommentForm
     template_name = 'dashboard/student/add_comment.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def form_valid(self, form):
         form.instance.user = self.request.user
         form.instance.tutorial_id = self.kwargs['pk']
@@ -535,7 +525,6 @@ class AddQuizView(CreateView):
     fields = ('name', 'course')
     template_name = 'dashboard/lecturer/add_quiz.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def form_valid(self, form):
         quiz = form.save(commit=False)
         quiz.owner = self.request.user
@@ -549,16 +538,13 @@ class UpdateQuizView(UpdateView):
     fields = ('name', 'course')
     template_name = 'dashboard/lecturer/update_quiz.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_context_data(self, **kwargs):
         kwargs['questions'] = self.get_object().questions.annotate(answers_count=Count('answers'))
         return super().get_context_data(**kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_queryset(self):
         return self.request.user.quizzes.all()
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_success_url(self):
         return reverse('update_quiz', kwargs={'pk': self.object.pk})
 
@@ -631,7 +617,6 @@ class QuizListView(ListView):
     context_object_name = 'quizzes'
     template_name = 'dashboard/lecturer/list_quiz.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_queryset(self):
         queryset = self.request.user.quizzes \
             .select_related('course') \
@@ -647,23 +632,19 @@ class DeleteQuestion(DeleteView):
     template_name = 'dashboard/lecturer/delete_question.html'
     pk_url_kwarg = 'question_pk'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_context_data(self, **kwargs):
         question = self.get_object()
         kwargs['quiz'] = question.quiz
         return super().get_context_data(**kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def delete(self, request, *args, **kwargs):
         question = self.get_object()
         messages.success(request, 'The question was deleted successfully', question.text)
         return super().delete(request, *args, **kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_queryset(self):
         return Question.objects.filter(quiz__owner=self.request.user)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_success_url(self):
         question = self.get_object()
         return reverse('update_quiz', kwargs={'pk': question.quiz_id})
@@ -676,13 +657,11 @@ class DeleteQuiz(DeleteView):
     template_name = 'dashboard/lecturer/delete_quiz.html'
     success_url = reverse_lazy('list_quiz')
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def delete(self, request, *args, **kwargs):
         quiz = self.get_object()
         messages.success(request, 'The quiz %s was deleted with success!' % quiz.name)
         return super().delete(request, *args, **kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_queryset(self):
         return self.request.user.quizzes.all()
 
@@ -693,7 +672,6 @@ class ResultsView(DeleteView):
     context_object_name = 'quiz'
     template_name = 'dashboard/lecturer/quiz_results.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_context_data(self, **kwargs):
         quiz = self.get_object()
         taken_quizzes = quiz.taken_quizzes.select_related('student__user').order_by('-date')
@@ -708,7 +686,6 @@ class ResultsView(DeleteView):
         kwargs.update(extra_context)
         return super().get_context_data(**kwargs)
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_queryset(self):
         return self.request.user.quizzes.all()
 
@@ -734,7 +711,6 @@ class StudentQuizListView(ListView):
     context_object_name = 'quizzes'
     template_name = 'dashboard/student/student_list_quiz.html'
 
-    @ratelimit(key='ip', rate='5/m', block=True)
     def get_queryset(self):
         queryset = Quiz.objects.all()
         return queryset
