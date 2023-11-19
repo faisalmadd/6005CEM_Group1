@@ -31,6 +31,14 @@ RECAPTCHA_PRIVATE_KEY = '6Ldcb1seAAAAAIDy-XS5SyzAEfnE0VKmp4aEBAdo'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# for sending otp to email
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'teongyew01@gmail.com'
+EMAIL_HOST_PASSWORD = 'fljf kuwh houy rytp'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
 ALLOWED_HOSTS = []
 
 # Application definition
@@ -171,3 +179,4 @@ AUTO_LOGOUT = {
     'REDIRECT_TO_LOGIN_IMMEDIATELY': True,
     'MESSAGE': 'The session has expired. Please login again to continue.',
 }
+

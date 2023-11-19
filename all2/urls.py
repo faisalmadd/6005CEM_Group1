@@ -33,6 +33,9 @@ from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp.plugins.otp_totp.admin import TOTPDeviceAdmin
 from pages.views import *
 
+from django.contrib.auth.views import LoginView
+from django_otp.forms import OTPAuthenticationForm
+
 # create OTP admin class
 class OTPAdmin(OTPAdminSite):
    pass
@@ -55,6 +58,8 @@ urlpatterns = [
     path('register/', StudentRegisterView.as_view(), name='register'),
     path('login/', login_view, name='login'),
     path('login_form/', login_form, name='login_form'),
+    path('otp/', otp_view, name='otp'),
+    #path('login_form/', LoginView.as_view(authentication_form=OTPAuthenticationForm)),
     path('logout/', auth_view.LogoutView.as_view(template_name='logout.html'), name='logout'),
     path('admin/', admin.site.urls),
     path('captcha/', include('captcha.urls')),

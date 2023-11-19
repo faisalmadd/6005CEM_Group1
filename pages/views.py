@@ -18,7 +18,13 @@ from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStude
     BaseAnswerInlineFormSet, CommentForm
 from utils.crypto_utils import encrypt_data, decrypt_data
 from django_ratelimit.decorators import ratelimit
-from django.contrib.auth.decorators import login_required 
+from django.contrib.auth.decorators import login_required, user_passes_test 
+import pyotp
+from datetime import datetime, timedelta
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils.decorators import method_decorator
+
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -30,6 +36,12 @@ iv = b'Q\x85\xfe`@\xcd\xbc\xf2\x99\x13\x05qy)\x81X'
 def homepage_view(request, *args, **kwargs):
     return render(request, "home.html", {})
 
+
+def is_admin(user):
+    return user.is_authenticated and (user.is_admin or user.is_superuser)
+
+def is_lecturer(user):
+    return user.is_authenticated and (user.is_lecturer or user.is_admin or user.is_superuser)
 
 class StudentRegisterView(CreateView):
     model = User
@@ -58,7 +70,7 @@ class StudentRegisterView(CreateView):
         return redirect('home')
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class LecturerRegisterView(CreateView):
     model = User
     form_class = LecturerRegistrationForm
@@ -87,7 +99,7 @@ class LecturerRegisterView(CreateView):
         return redirect('admin_dashboard')
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class AdminStudentRegisterView(CreateView):
     model = User
     form_class = AdminStudentRegistrationForm
@@ -134,6 +146,22 @@ def login_view(request, *args, **kwargs):
         user = authenticate(request, username=username, password=password)
         if user is not None and user.is_active:
             auth.login(request, user)
+            
+            if user.is_admin or user.is_superuser:
+                request.session['where_to'] = "admin_dashboard"
+            elif user.is_lecturer:
+                request.session['where_to'] = "lecturer_dashboard"
+            elif user.is_student:
+                request.session['where_to'] = "student_dashboard"
+            else:
+                request.session['where_to'] = "login_form"
+
+            request.session['name'] = username
+
+            send_otp(request)
+            
+            return redirect('otp')
+
             if user.is_admin or user.is_superuser:
                 return redirect('admin_dashboard')
             elif user.is_lecturer:
@@ -147,8 +175,94 @@ def login_view(request, *args, **kwargs):
             return redirect('login_form')
 
 
+def otp_view(request):
+    error_message = None
+    print(f"Error: {error_message}")
+    if request.method == 'POST':
+        otp = request.POST['otp']
+        where_to = request.session['where_to']
+
+        otp_secret_key = request.session['otp_secret_key']
+        otp_valid_date = request.session['otp_valid_date']
+
+        print(f"input otp: {otp}")
+        print(f"where to: {where_to}")
+        print(f"secret key: {otp_secret_key}")
+
+        if otp_secret_key and otp_valid_date is not None:
+            valid_date = datetime.fromisoformat(otp_valid_date)
+            if valid_date > datetime.now():
+                print(f"got date verified")
+                totp = pyotp.TOTP(otp_secret_key, interval=60)
+                if totp.verify(otp):
+
+                    del request.session['otp_secret_key']
+                    del request.session['otp_valid_date']
+
+                    print(f"got verified")
+                    return redirect(where_to)
+
+                    if where_to == "admin_dashboard":
+                        print(f"got into admin dashboard if else")
+                        return redirect('admin_dashboard')
+                    elif where_to == "lecturer_dashboard":
+                        return redirect('lecturer_dashboard')
+                    elif where_to == "student_dashboard":
+                        return redirect('student_dashboard')
+                    else:
+                        return redirect('login_form')
+                else:
+                    error_message = 'Invalid One-time Password'
+            else:
+                error_message = 'One-time Password has expired'
+        else:
+            error_message = 'Something went wrong. Please try loggin in again'
+                    
+
+    return render(request, 'otp.html', {'error_message': error_message})
+
+
+def send_otp(request):
+    base32_key = pyotp.random_base32()
+    totp = pyotp.TOTP(base32_key, interval=60)
+    otp = totp.now()
+    request.session['otp_secret_key'] = totp.secret
+    valid_date = datetime.now() + timedelta(minutes=1) 
+    request.session['otp_valid_date'] = str(valid_date)
+
+    print(f"Your one time password: {otp}")
+
+    current_user = request.user
+    user_id = current_user.id
+    current_email = current_user.email
+    current_name = current_user.username
+    print(f"This is current users: {current_user}")
+    print(f"This is users id: {user_id}")
+    print(f"This is users email: {current_email}")
+    print(f"This is user name: {current_name}")
+    
+    message = "Your one time password: " + otp
+    email =  current_email
+    name = current_name
+
+    print(f"This is message: {message}")
+    print(f"This is email: {email}")
+    print(f"This is name: {name}")
+
+    if email is not None:
+        send_mail(
+            "One Time Password for " + name, # email title
+            message, # email content
+            settings.EMAIL_HOST_USER, #sender email
+            [email], # receiver email
+            fail_silently=False)
+    else:
+        print("Make sure the user has an email")
+
+
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def lecturer_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -195,6 +309,7 @@ def lecturer_create_profile(request):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def lecturer_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -347,6 +462,7 @@ def student_dashboard(request, *args, **kwargs):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def lecturer_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -359,6 +475,7 @@ def lecturer_dashboard(request, *args, **kwargs):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_admin, login_url='login_form')
 def admin_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -371,6 +488,7 @@ def admin_dashboard(request, *args, **kwargs):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_course(request):
     if request.method == 'POST':
         name = request.POST['name']
@@ -383,7 +501,7 @@ def add_course(request):
         return render(request, 'dashboard/lecturer/add_course.html')
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class ManageUserView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'dashboard/admin/manage_users.html'
@@ -412,7 +530,7 @@ class ManageUserView(LoginRequiredMixin, ListView):
         return decrypted_users
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class DeleteUser(SuccessMessageMixin, DeleteView):
     model = User
     template_name = 'dashboard/admin/delete_user.html'
@@ -422,6 +540,7 @@ class DeleteUser(SuccessMessageMixin, DeleteView):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_tutorial(request):
     courses = Course.objects.only('id', 'name')
     context = {'courses': courses}
@@ -430,6 +549,7 @@ def add_tutorial(request):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def post_tutorial(request):
     if request.method == 'POST':
         title = request.POST['title']
@@ -452,19 +572,20 @@ def post_tutorial(request):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def list_tutorial(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     tutorials = {'tutorials': tutorials}
     return render(request, 'dashboard/lecturer/list_tutorial.html', tutorials)
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class LecturerTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/lecturer/tutorial_detail.html'
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class AddComment(CreateView):
     model = Comments
     form_class = CommentForm
@@ -478,7 +599,6 @@ class AddComment(CreateView):
     success_url = "/lecturer_tutorials/{tutorial_id}"
 
 
-@login_required(login_url='login_form') 
 class AddCommentStudent(CreateView):
     model = Comments
     form_class = CommentForm
@@ -494,6 +614,7 @@ class AddCommentStudent(CreateView):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_notes(request):
     tutorials = Tutorial.objects.only('id', 'title')
     context = {'tutorials': tutorials}
@@ -502,6 +623,7 @@ def add_notes(request):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
@@ -519,7 +641,7 @@ def post_notes(request):
         return redirect('add_notes')
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class AddQuizView(CreateView):
     model = Quiz
     fields = ('name', 'course')
@@ -532,7 +654,7 @@ class AddQuizView(CreateView):
         return redirect('update_quiz', quiz.pk)
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class UpdateQuizView(UpdateView):
     model = Quiz
     fields = ('name', 'course')
@@ -551,6 +673,7 @@ class UpdateQuizView(UpdateView):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_question(request, pk):
     # By filtering the quiz by the url keyword argument `pk` and by the owner, which is the logged in user,
     # we are protecting this view at the object-level. Meaning only the owner of quiz will be able to add questions
@@ -573,6 +696,7 @@ def add_question(request, pk):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form') 
+@user_passes_test(is_lecturer, login_url='login_form')
 def update_question(request, quiz_pk, question_pk):
     # calls the Quiz model and get object from that. If that object or model doesn't exist it raise 404 error.
     quiz = get_object_or_404(Quiz, pk=quiz_pk, owner=request.user)
@@ -611,6 +735,7 @@ def update_question(request, quiz_pk, question_pk):
     })
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class QuizListView(ListView):
     model = Quiz
     ordering = ('name',)
@@ -625,7 +750,7 @@ class QuizListView(ListView):
         return queryset
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class DeleteQuestion(DeleteView):
     model = Question
     context_object_name = 'question'
@@ -650,7 +775,7 @@ class DeleteQuestion(DeleteView):
         return reverse('update_quiz', kwargs={'pk': question.quiz_id})
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class DeleteQuiz(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -666,7 +791,7 @@ class DeleteQuiz(DeleteView):
         return self.request.user.quizzes.all()
 
 
-@login_required(login_url='login_form') 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class ResultsView(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -698,13 +823,11 @@ def student_tutorials(request):
     return render(request, 'dashboard/student/student_tutorials.html', context)
 
 
-@login_required(login_url='login_form') 
 class StudentTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/student/student_tutorial_detail.html'
 
 
-@login_required(login_url='login_form') 
 class StudentQuizListView(ListView):
     model = Quiz
     ordering = ('name',)
