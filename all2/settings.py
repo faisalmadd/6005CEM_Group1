@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 import os
 from pathlib import Path
+from datetime import timedelta
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -48,9 +50,14 @@ INSTALLED_APPS = [
     'captcha',
     'widget_tweaks',
     'bootstrap_modal_forms',
-    'bootstrap3',
+    'crispy_bootstrap4',
+    'bootstrap4',
     'django_forms_bootstrap',
+    'sslserver',
 
+    #teong
+    'django_otp',
+    'django_otp.plugins.otp_totp',
 ]
 
 MIDDLEWARE = [
@@ -59,8 +66,10 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_auto_logout.middleware.auto_logout',
 ]
 
 ROOT_URLCONF = 'all2.urls'
@@ -76,6 +85,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django_auto_logout.context_processors.auto_logout_client',
             ],
         },
     },
@@ -116,7 +126,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# changed to local time zone for OTP stuff (was originally 'UTC')
+TIME_ZONE = 'Asia/Kuala_Lumpur'
 
 DATETIME_FORMAT = 'D-M-Y'
 
@@ -151,3 +162,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 LOGIN_REDIRECT_URL = 'home'
+
+AES_ENCRYPTION_KEY = 'yAAcp8fmlkGS7ei19gnuWRwtLlIr/uP7bVc6KWy4ktviWJ8+cFIXRSWK0anzL9Rd'
+
+# for session auto-logout
+AUTO_LOGOUT = {
+    'IDLE_TIME': timedelta(minutes=30),
+    'REDIRECT_TO_LOGIN_IMMEDIATELY': True,
+    'MESSAGE': 'The session has expired. Please login again to continue.',
+}

@@ -9,12 +9,10 @@ from pages.models import *
 
 class StudentRegistrationForm(UserCreationForm):
     email = forms.EmailField()
-    contact = forms.CharField(max_length=11)
-    captcha = CaptchaField()
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'contact', 'password1', 'password2', 'captcha']
+        fields = ['username', 'email', 'password1', 'password2']
 
     def __init__(self, *args, **kwargs):
         super(StudentRegistrationForm, self).__init__(*args, **kwargs)
@@ -30,11 +28,10 @@ class StudentRegistrationForm(UserCreationForm):
 
 class AdminStudentRegistrationForm(UserCreationForm):
     email = forms.EmailField()
-    contact = forms.CharField(max_length=11)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'contact', 'password1', 'password2']
+        fields = ['username', 'email', 'password1', 'password2']
 
     def __init__(self, *args, **kwargs):
         super(AdminStudentRegistrationForm, self).__init__(*args, **kwargs)
@@ -50,11 +47,10 @@ class AdminStudentRegistrationForm(UserCreationForm):
 
 class LecturerRegistrationForm(UserCreationForm):
     email = forms.EmailField()
-    contact = forms.CharField(max_length=11)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'contact', 'password1', 'password2']
+        fields = ['username', 'email', 'password1', 'password2']
 
     def __init__(self, *args, **kwargs):
         super(LecturerRegistrationForm, self).__init__(*args, **kwargs)

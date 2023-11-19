@@ -26,6 +26,28 @@ from pages.views import *
     list_tutorial, add_tutorial, AddComment, add_notes, post_notes"""
 from django.contrib.auth import views as auth_view
 
+# imports for OTP
+from django.contrib.auth.models import User
+from django_otp.admin import OTPAdminSite
+from django_otp.plugins.otp_totp.models import TOTPDevice
+from django_otp.plugins.otp_totp.admin import TOTPDeviceAdmin
+from pages.views import *
+
+# create OTP admin class
+class OTPAdmin(OTPAdminSite):
+   pass
+
+admin_site = OTPAdmin(OTPAdminSite.name)
+admin_site.register(User)
+admin_site.register(TOTPDevice, TOTPDeviceAdmin)
+admin_site.register(Tutorial)
+admin_site.register(Comments)
+admin_site.register(Quiz)
+admin_site.register(Question)
+admin_site.register(Answer)
+admin_site.register(TakenQuiz)
+admin_site.register(Notes)
+
 
 urlpatterns = [
     path('', homepage_view, name='home'),  # 1st arg '' means Home Page

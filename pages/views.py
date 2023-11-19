@@ -1,10 +1,12 @@
+import base64
+import binascii
 from django.contrib.auth import login, authenticate
 from django.contrib import auth
 from django.contrib.auth.forms import UserChangeForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db import transaction
-from django.db.models import Count, Avg
+from django.db.models import Count, Avg, QuerySet
 from django.forms import inlineformset_factory
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
@@ -14,9 +16,17 @@ from django.views.generic import CreateView, ListView, DeleteView, UpdateView, D
 from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, Course, Tutorial, Notes, Comments
 from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStudentRegistrationForm, QuestionForm, \
     BaseAnswerInlineFormSet, CommentForm
+from utils.crypto_utils import encrypt_data, decrypt_data
+from django_ratelimit.decorators import ratelimit
+from django.contrib.auth.decorators import login_required 
+
+# Encryption/Decryption AES Key & Initialization Vector
+key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
+iv = b'Q\x85\xfe`@\xcd\xbc\xf2\x99\x13\x05qy)\x81X'
 
 
 # Create your views here.
+@ratelimit(key='ip', rate='5/m', block=True)
 def homepage_view(request, *args, **kwargs):
     return render(request, "home.html", {})
 
@@ -31,13 +41,24 @@ class StudentRegisterView(CreateView):
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form):
+        # Encrypt email using the key and initialization vector
+        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
+        print(encrypted_email)
+
+        # Save the encrypted email and other form data
         user = form.save()
-        login(self.request, user)
-        user = form.cleaned_data.get('username')
-        messages.success(self.request, f'Hi {user}, your account was created successfully!')
+        user.email = base64.b64encode(encrypted_email).decode('utf-8')  # Encode base64 to store as string in database
+        print(user.email)
+        user.save()
+
+        decrypted_data = decrypt_data(encrypted_email, key, iv)
+        print("Decrypted Data:", decrypted_data)
+
+        messages.success(self.request, f'Hi {user.username}, your account was created successfully!')
         return redirect('home')
 
 
+@login_required(login_url='login_form') 
 class LecturerRegisterView(CreateView):
     model = User
     form_class = LecturerRegistrationForm
@@ -48,11 +69,25 @@ class LecturerRegisterView(CreateView):
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form):
+        # Encrypt email using the key and initialization vector
+        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
+        print(encrypted_email)
+
+        # Save the encrypted email and other form data
         user = form.save()
-        login(self.request, user)
-        return redirect('lecturer_dashboard')
+        user.email = base64.b64encode(encrypted_email).decode('utf-8')  # Encode base64 to store as string in database
+        print(user.email)
+        user.save()
+
+        decrypted_data = decrypt_data(encrypted_email, key, iv)
+        print("Decrypted Data:", decrypted_data)
+
+        messages.success(self.request, f'{user.username} account was created successfully!')
+
+        return redirect('admin_dashboard')
 
 
+@login_required(login_url='login_form') 
 class AdminStudentRegisterView(CreateView):
     model = User
     form_class = AdminStudentRegistrationForm
@@ -63,16 +98,35 @@ class AdminStudentRegisterView(CreateView):
         return super().get_context_data(**kwargs)
 
     def form_valid(self, form):
+        # Encrypt email using the key and initialization vector
+        encrypted_email = encrypt_data(form.cleaned_data['email'], key, iv)
+        print(encrypted_email)
+
+        # Save the encrypted email and other form data
         user = form.save()
-        login(self.request, user)
-        # return redirect('learner')
-        return redirect('student_dashboard')
+        user.email = base64.b64encode(encrypted_email).decode('utf-8')  # Encode base64 to store as string in database
+        print(user.email)
+        user.save()
+
+        decrypted_data = decrypt_data(encrypted_email, key, iv)
+        print("Decrypted Data:", decrypted_data)
+
+        messages.success(self.request, f'{user.username} account was created successfully!')
+
+        return redirect('admin_dashboard')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def login_form(request):
     return render(request, 'login.html')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+def contact_view(request):
+    return render(request, 'contact.html')
+
+
+@ratelimit(key='ip', rate='5/m', block=True)
 def login_view(request, *args, **kwargs):
     if request.method == 'POST':
         username = request.POST['username']
@@ -93,10 +147,8 @@ def login_view(request, *args, **kwargs):
             return redirect('login_form')
 
 
-def contact_view(request, *args, **kwargs):
-    return render(request, "contact.html", {})
-
-
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def lecturer_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -110,8 +162,27 @@ def lecturer_create_profile(request):
         user_id = current_user.id
         print(user_id)
 
-        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=contact, first_name=first_name, email=email,
-                                                  last_name=last_name, bio=bio, dob=dob, profile_pic=profile_pic)
+        # Encrypt fields using the key and initialization vector
+        encrypted_first_name = encrypt_data(first_name, key, iv)
+        encrypted_last_name = encrypt_data(last_name, key, iv)
+        encrypted_dob = encrypt_data(dob, key, iv)
+        encrypted_bio = encrypt_data(bio, key, iv)
+        encrypted_contact = encrypt_data(contact, key, iv)
+        encrypted_email = encrypt_data(email, key, iv)
+        print(encrypted_email)
+
+        encoded_first_name = base64.b64encode(encrypted_first_name).decode('utf-8')
+        encoded_last_name = base64.b64encode(encrypted_last_name).decode('utf-8')
+        encoded_dob = base64.b64encode(encrypted_dob).decode('utf-8')
+        encoded_bio = base64.b64encode(encrypted_bio).decode('utf-8')
+        encoded_contact = base64.b64encode(encrypted_contact).decode('utf-8')
+        encoded_email = base64.b64encode(encrypted_email).decode('utf-8')
+        print(encoded_email)
+
+        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=encoded_contact,
+                                                  first_name=encoded_first_name, email=encoded_email,
+                                                  last_name=encoded_last_name, bio=encoded_bio, dob=encoded_dob,
+                                                  profile_pic=profile_pic)
         messages.success(request, 'Your Profile Was Created Successfully')
         return redirect('lecturer_profile')
     else:
@@ -122,14 +193,55 @@ def lecturer_create_profile(request):
         return render(request, 'dashboard/lecturer/create_profile.html', users)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def lecturer_user_profile(request):
     current_user = request.user
     user_id = current_user.id
     users = Profile.objects.filter(user_id=user_id)
-    users = {'users': users}
-    return render(request, 'dashboard/lecturer/view_profile.html', users)
+    print(users)
+
+    if not users:
+        # Handle the case where no users are found
+        context = {'users': users}
+        return render(request, 'dashboard/lecturer/view_profile.html', context)
+    else:
+        try:
+            # Access the first user in the queryset
+            user = users[0]
+            # Decrypt necessary fields
+            decrypted_email = decrypt_data(base64.b64decode(user.email), key, iv)
+            decrypted_first_name = decrypt_data(base64.b64decode(user.first_name), key, iv)
+            decrypted_last_name = decrypt_data(base64.b64decode(user.last_name), key, iv)
+            decrypted_dob = decrypt_data(base64.b64decode(user.dob), key, iv)
+            decrypted_bio = decrypt_data(base64.b64decode(user.bio), key, iv)
+            decrypted_contact = decrypt_data(base64.b64decode(user.contact), key, iv)
+
+            # Construct user_data dictionary
+            user_data = {
+                'username': current_user.username,
+                'user_id': user.user_id,
+                'email': decrypted_email,
+                'first_name': decrypted_first_name,
+                'last_name': decrypted_last_name,
+                'dob': decrypted_dob,
+                'bio': decrypted_bio,
+                'contact': decrypted_contact,
+                'profile_pic': user.profile_pic,
+            }
+            print(user_data)
+
+            context = {'users': user_data}
+            print(context)
+            return render(request, 'dashboard/lecturer/view_profile.html', context)
+
+        except binascii.Error as e:
+            # Handle invalid base64-encoded strings
+            print(f"Error decoding email for user {user_id}: {e}")
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -143,8 +255,28 @@ def student_create_profile(request):
         user_id = current_user.id
         print(user_id)
 
-        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=contact, first_name=first_name, email=email,
-                                                  last_name=last_name, bio=bio, dob=dob, profile_pic=profile_pic)
+        # Encrypt fields using the key and initialization vector
+        encrypted_first_name = encrypt_data(first_name, key, iv)
+        encrypted_last_name = encrypt_data(last_name, key, iv)
+        encrypted_dob = encrypt_data(dob, key, iv)
+        encrypted_bio = encrypt_data(bio, key, iv)
+        encrypted_contact = encrypt_data(contact, key, iv)
+        encrypted_email = encrypt_data(email, key, iv)
+        print(encrypted_email)
+
+        encoded_first_name = base64.b64encode(encrypted_first_name).decode('utf-8')
+        encoded_last_name = base64.b64encode(encrypted_last_name).decode('utf-8')
+        encoded_dob = base64.b64encode(encrypted_dob).decode('utf-8')
+        encoded_bio = base64.b64encode(encrypted_bio).decode('utf-8')
+        encoded_contact = base64.b64encode(encrypted_contact).decode('utf-8')
+        encoded_email = base64.b64encode(encrypted_email).decode('utf-8')
+        print(encoded_email)
+
+        Profile.objects.filter(id=user_id).create(user_id=user_id, contact=encoded_contact,
+                                                  first_name=encoded_first_name, email=encoded_email,
+                                                  last_name=encoded_last_name, bio=encoded_bio, dob=encoded_dob,
+                                                  profile_pic=profile_pic)
+        messages.success(request, 'Your Profile Was Created Successfully')
         return redirect('student_profile')
     else:
         current_user = request.user
@@ -154,14 +286,55 @@ def student_create_profile(request):
         return render(request, 'dashboard/student/create_profile.html', users)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_user_profile(request):
     current_user = request.user
     user_id = current_user.id
     users = Profile.objects.filter(user_id=user_id)
-    users = {'users': users}
-    return render(request, 'dashboard/student/view_profile.html', users)
+    print(users)
+
+    if not users:
+        # Handle the case where no users are found
+        context = {'users': users}
+        return render(request, 'dashboard/student/view_profile.html', context)
+    else:
+        try:
+            # Access the first user in the queryset
+            user = users[0]
+            # Decrypt necessary fields
+            decrypted_email = decrypt_data(base64.b64decode(user.email), key, iv)
+            decrypted_first_name = decrypt_data(base64.b64decode(user.first_name), key, iv)
+            decrypted_last_name = decrypt_data(base64.b64decode(user.last_name), key, iv)
+            decrypted_dob = decrypt_data(base64.b64decode(user.dob), key, iv)
+            decrypted_bio = decrypt_data(base64.b64decode(user.bio), key, iv)
+            decrypted_contact = decrypt_data(base64.b64decode(user.contact), key, iv)
+
+            # Construct user_data dictionary
+            user_data = {
+                'username': current_user.username,
+                'user_id': user.user_id,
+                'email': decrypted_email,
+                'first_name': decrypted_first_name,
+                'last_name': decrypted_last_name,
+                'dob': decrypted_dob,
+                'bio': decrypted_bio,
+                'contact': decrypted_contact,
+                'profile_pic': user.profile_pic,
+            }
+            print(user_data)
+
+            context = {'users': user_data}
+            print(context)
+            return render(request, 'dashboard/student/view_profile.html', context)
+
+        except binascii.Error as e:
+            # Handle invalid base64-encoded strings
+            print(f"Error decoding email for user {user_id}: {e}")
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -172,6 +345,8 @@ def student_dashboard(request, *args, **kwargs):
     return render(request, "dashboard/student/dashboard.html", context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def lecturer_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -182,6 +357,8 @@ def lecturer_dashboard(request, *args, **kwargs):
     return render(request, "dashboard/lecturer/dashboard.html", context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def admin_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -192,6 +369,8 @@ def admin_dashboard(request, *args, **kwargs):
     return render(request, "dashboard/admin/dashboard.html", context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_course(request):
     if request.method == 'POST':
         name = request.POST['name']
@@ -204,16 +383,36 @@ def add_course(request):
         return render(request, 'dashboard/lecturer/add_course.html')
 
 
+@login_required(login_url='login_form') 
 class ManageUserView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'dashboard/admin/manage_users.html'
     context_object_name = 'users'
-    paginated_by = 10
+    paginate_by = 10
 
     def get_queryset(self):
-        return User.objects.order_by('-id')
+        queryset = User.objects.order_by('-id')
+        decrypted_users = self.decrypt_user_emails(queryset)
+        return decrypted_users
+
+    def decrypt_user_emails(self, queryset):
+        decrypted_users = []
+
+        for user in queryset:
+            try:
+                # Padding the base64-encoded string if needed
+                padded_email = user.email + '=' * ((4 - len(user.email) % 4) % 4)
+                decrypted_email = decrypt_data(base64.b64decode(padded_email), key, iv)
+                user.temp_decrypted_email = decrypted_email  # Temporary field to store decrypted email
+                decrypted_users.append(user)
+            except binascii.Error as e:
+                # Handle invalid base64-encoded strings
+                print(f"Error decoding email for user {user.username}: {e}")
+
+        return decrypted_users
 
 
+@login_required(login_url='login_form') 
 class DeleteUser(SuccessMessageMixin, DeleteView):
     model = User
     template_name = 'dashboard/admin/delete_user.html'
@@ -221,12 +420,16 @@ class DeleteUser(SuccessMessageMixin, DeleteView):
     success_message = 'User was deleted successfully!'
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_tutorial(request):
     courses = Course.objects.only('id', 'name')
     context = {'courses': courses}
     return render(request, 'dashboard/lecturer/add_tutorial.html', context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def post_tutorial(request):
     if request.method == 'POST':
         title = request.POST['title']
@@ -247,17 +450,21 @@ def post_tutorial(request):
         return redirect('add_tutorial')
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def list_tutorial(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     tutorials = {'tutorials': tutorials}
     return render(request, 'dashboard/lecturer/list_tutorial.html', tutorials)
 
 
+@login_required(login_url='login_form') 
 class LecturerTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/lecturer/tutorial_detail.html'
 
 
+@login_required(login_url='login_form') 
 class AddComment(CreateView):
     model = Comments
     form_class = CommentForm
@@ -271,6 +478,7 @@ class AddComment(CreateView):
     success_url = "/lecturer_tutorials/{tutorial_id}"
 
 
+@login_required(login_url='login_form') 
 class AddCommentStudent(CreateView):
     model = Comments
     form_class = CommentForm
@@ -284,12 +492,16 @@ class AddCommentStudent(CreateView):
     success_url = "/student_tutorials/{tutorial_id}"
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_notes(request):
     tutorials = Tutorial.objects.only('id', 'title')
     context = {'tutorials': tutorials}
     return render(request, 'dashboard/lecturer/add_notes.html', context)
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
@@ -307,6 +519,7 @@ def post_notes(request):
         return redirect('add_notes')
 
 
+@login_required(login_url='login_form') 
 class AddQuizView(CreateView):
     model = Quiz
     fields = ('name', 'course')
@@ -319,6 +532,7 @@ class AddQuizView(CreateView):
         return redirect('update_quiz', quiz.pk)
 
 
+@login_required(login_url='login_form') 
 class UpdateQuizView(UpdateView):
     model = Quiz
     fields = ('name', 'course')
@@ -335,6 +549,8 @@ class UpdateQuizView(UpdateView):
         return reverse('update_quiz', kwargs={'pk': self.object.pk})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def add_question(request, pk):
     # By filtering the quiz by the url keyword argument `pk` and by the owner, which is the logged in user,
     # we are protecting this view at the object-level. Meaning only the owner of quiz will be able to add questions
@@ -355,6 +571,8 @@ def add_question(request, pk):
         return render(request, 'dashboard/lecturer/add_question.html', {'quiz': quiz, 'form': form})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def update_question(request, quiz_pk, question_pk):
     # calls the Quiz model and get object from that. If that object or model doesn't exist it raise 404 error.
     quiz = get_object_or_404(Quiz, pk=quiz_pk, owner=request.user)
@@ -407,6 +625,7 @@ class QuizListView(ListView):
         return queryset
 
 
+@login_required(login_url='login_form') 
 class DeleteQuestion(DeleteView):
     model = Question
     context_object_name = 'question'
@@ -431,6 +650,7 @@ class DeleteQuestion(DeleteView):
         return reverse('update_quiz', kwargs={'pk': question.quiz_id})
 
 
+@login_required(login_url='login_form') 
 class DeleteQuiz(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -446,6 +666,7 @@ class DeleteQuiz(DeleteView):
         return self.request.user.quizzes.all()
 
 
+@login_required(login_url='login_form') 
 class ResultsView(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -469,17 +690,21 @@ class ResultsView(DeleteView):
         return self.request.user.quizzes.all()
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
+@login_required(login_url='login_form') 
 def student_tutorials(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     context = {'tutorials': tutorials}
     return render(request, 'dashboard/student/student_tutorials.html', context)
 
 
+@login_required(login_url='login_form') 
 class StudentTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/student/student_tutorial_detail.html'
 
 
+@login_required(login_url='login_form') 
 class StudentQuizListView(ListView):
     model = Quiz
     ordering = ('name',)
@@ -491,53 +716,13 @@ class StudentQuizListView(ListView):
         return queryset
 
 
-'''def take_quiz(request, pk):
-    quiz = get_object_or_404(Quiz, pk=pk)
-    student = request.user.student
-
-    if student.quizzes.filter(pk=pk).exists():
-        return render(request, 'dashboard/student/taken_quiz.html')
-
-    total_questions = quiz.questions.count()
-    unanswered_questions = student.get_unanswered_questions(quiz)
-    total_unanswered_questions = unanswered_questions.count()
-    progress = 100 - round(((total_unanswered_questions - 1) / total_questions) * 100)
-    question = unanswered_questions.first()
-
-    if request.method == 'POST':
-        form = TakeQuizForm(question=question, data=request.POST)
-        if form.is_valid():
-            with transaction.atomic():
-                student_answer = form.save(commit=False)
-                student_answer.student = student
-                student_answer.save()
-                if student.get_unanswered_questions(quiz).exists():
-                    return redirect('take_quiz', pk)
-                else:
-                    correct_answers = student.quiz_answers.filter(answer__question__quiz=quiz, answer__is_correct=True).count()
-                    score = round((correct_answers / total_questions) * 100.0, 2)
-                    TakenQuiz.objects.create(student=student, quiz=quiz, score=score)
-                    if score < 50.0:
-                        messages.warning(request, 'Better luck next time! Your score for the quiz was %s.' % (score))
-                    else:
-                        messages.success(request, 'Congratulations! You completed the quiz! You scored %s points.' % (score))
-                    return redirect('student_quiz_list')
-    else:
-        form = TakeQuizForm(question=question)
-
-    return render(request, 'dashboard/student/quiz_form.html', {
-        'quiz': quiz,
-        'question': question,
-        'form': form,
-        'progress': progress
-    })'''
-
-
+@ratelimit(key='ip', rate='5/m', block=True)
 def quiz_view(request, pk):
     quiz = Quiz.objects.get(pk=pk)
     return render(request, 'dashboard/student/quiz_form.html', {'obj': quiz})
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def quiz_data_view(request, pk):
     quiz = Quiz.objects.get(pk=pk)
     questions = []
@@ -551,10 +736,12 @@ def quiz_data_view(request, pk):
     })
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def is_ajax(request):
     return request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
 
 
+@ratelimit(key='ip', rate='5/m', block=True)
 def save_quiz_view(request, pk):
     # print(request.POST)
     if is_ajax(request=request):
