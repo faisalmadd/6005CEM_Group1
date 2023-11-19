@@ -146,21 +146,21 @@ def login_view(request, *args, **kwargs):
         user = authenticate(request, username=username, password=password)
         if user is not None and user.is_active:
             auth.login(request, user)
-            
-            if user.is_admin or user.is_superuser:
-                request.session['where_to'] = "admin_dashboard"
-            elif user.is_lecturer:
-                request.session['where_to'] = "lecturer_dashboard"
-            elif user.is_student:
-                request.session['where_to'] = "student_dashboard"
-            else:
-                request.session['where_to'] = "login_form"
 
-            request.session['name'] = username
+            # uncomment below code for MFA OTP
+             
+            # if user.is_admin or user.is_superuser:
+            #     request.session['where_to'] = "admin_dashboard"
+            # elif user.is_lecturer:
+            #     request.session['where_to'] = "lecturer_dashboard"
+            # elif user.is_student:
+            #     request.session['where_to'] = "student_dashboard"
+            # else:
+            #     request.session['where_to'] = "login_form"
 
-            send_otp(request)
-            
-            return redirect('otp')
+            # request.session['name'] = username
+            # send_otp(request)
+            # return redirect('otp')
 
             if user.is_admin or user.is_superuser:
                 return redirect('admin_dashboard')
