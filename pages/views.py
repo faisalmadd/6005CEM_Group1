@@ -18,7 +18,10 @@ from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStude
     BaseAnswerInlineFormSet, CommentForm
 from utils.crypto_utils import encrypt_data, decrypt_data
 from django_ratelimit.decorators import ratelimit
-from django.contrib.auth.decorators import login_required 
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseBadRequest
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -496,12 +499,42 @@ def add_notes(request):
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
-        pdf_file = request.FILES['pdf_file']
-        ppt_file = request.FILES['ppt_file']
+        pdf_file = request.FILES.get('pdf_file')
+        ppt_file = request.FILES.get('ppt_file')
         current_user = request.user
         user_id = current_user.id
 
+        if not pdf_file and not ppt_file:
+            return HttpResponseBadRequest("Please choose at least one file to upload.")
+
+        # Validate file types
+        allowed_pdf_extensions = ['pdf']
+        allowed_ppt_extensions = ['ppt', 'pptx']
+        max_file_size = 10 * 1024 * 1024  # 10 MB
+
+        if pdf_file:
+            try:
+                validate_pdf = FileExtensionValidator(allowed_extensions=allowed_pdf_extensions)
+                validate_pdf(pdf_file)
+            except ValidationError as e:
+                return HttpResponseBadRequest(f"Invalid PDF file: {e}")
+
+            if pdf_file and pdf_file.size > max_file_size:
+                return HttpResponseBadRequest("PDF file size exceeds the limit (10 MB).")
+
+        # Validate ppt_file if it exists
+        if ppt_file:
+            try:
+                validate_ppt = FileExtensionValidator(allowed_extensions=allowed_ppt_extensions)
+                validate_ppt(ppt_file)
+            except ValidationError as e:
+                return HttpResponseBadRequest(f"Invalid PPT file: {e}")
+
+            if ppt_file and ppt_file.size > max_file_size:
+                return HttpResponseBadRequest("PPT file size exceeds the limit (10 MB).")
+
         a = Notes(ppt_file=ppt_file, pdf_file=pdf_file, user_id=user_id, tutorial_id=tutorial_id)
+
         a.save()
         messages.success = (request, 'Notes Was Published Successfully')
         return redirect('add_notes')
