@@ -24,8 +24,8 @@ class StudentRegistrationForm(UserCreationForm):
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
-        if not username.isalnum():  # Allow only alphanumeric characters
-            raise ValidationError(_('Username can only contain letters and numbers.'))
+        if not all(char.isalnum() or char in '@.+_- ' for char in username):  # Allow only alphanumeric characters
+            raise ValidationError('Username can only contain letters, numbers, @, ., +, -, and _.')
         return username
 
     @transaction.atomic
@@ -53,8 +53,8 @@ class AdminStudentRegistrationForm(UserCreationForm):
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
-        if not username.isalnum():  # Allow only alphanumeric characters
-            raise ValidationError(_('Username can only contain letters and numbers.'))
+        if not all(char.isalnum() or char in '@.+_- ' for char in username):  # Allow only alphanumeric characters
+            raise ValidationError('Username can only contain letters, numbers, @, ., +, -, and _.')
         return username
 
     @transaction.atomic
@@ -82,8 +82,8 @@ class LecturerRegistrationForm(UserCreationForm):
 
     def clean_username(self):
         username = self.cleaned_data.get('username')
-        if not username.isalnum():  # Allow only alphanumeric characters
-            raise ValidationError(_('Username can only contain letters and numbers.'))
+        if not all(char.isalnum() or char in '@.+_- ' for char in username):  # Allow only alphanumeric characters
+            raise ValidationError('Username can only contain letters, numbers, @, ., +, -, and _.')
         return username
 
     @transaction.atomic
