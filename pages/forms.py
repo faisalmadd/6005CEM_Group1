@@ -3,6 +3,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.core.validators import RegexValidator
 
 from pages.models import *
 
@@ -67,7 +68,7 @@ class LecturerRegistrationForm(UserCreationForm):
 class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
-        fields = ('text', )
+        fields = ('text',)
 
 
 class BaseAnswerInlineFormSet(forms.BaseInlineFormSet):
@@ -87,8 +88,25 @@ class BaseAnswerInlineFormSet(forms.BaseInlineFormSet):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comments
-        fields = ('content', )
+        fields = ('content',)
 
         widgets = {
             'content': forms.Textarea(attrs={'class': 'form-control'}),
         }
+
+
+class AddCourseForm(forms.ModelForm):
+    alphanumeric_validator = RegexValidator(
+        regex=r'^[a-zA-Z0-9_ -]+$',
+        message='Course name can only contain alphanumeric characters, spaces, hyphens, and underscores.',
+        code='invalid course name'
+    )
+
+    name = forms.CharField(
+        validators=[alphanumeric_validator],
+        help_text='Enter the course name(alphanumeric characters, spaces, hyphens, and underscores).',
+    )
+
+    class Meta:
+        model = Course
+        fields = ['name']

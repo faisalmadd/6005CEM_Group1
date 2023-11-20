@@ -15,7 +15,7 @@ from django.urls import reverse_lazy, reverse
 from django.views.generic import CreateView, ListView, DeleteView, UpdateView, DetailView
 from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, Course, Tutorial, Notes, Comments
 from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStudentRegistrationForm, QuestionForm, \
-    BaseAnswerInlineFormSet, CommentForm
+    BaseAnswerInlineFormSet, CommentForm, AddCourseForm
 from utils.crypto_utils import encrypt_data, decrypt_data
 from django_ratelimit.decorators import ratelimit
 from django.contrib.auth.decorators import login_required
@@ -147,7 +147,7 @@ def login_view(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def lecturer_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -193,7 +193,7 @@ def lecturer_create_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def lecturer_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -240,7 +240,7 @@ def lecturer_user_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def student_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -286,7 +286,7 @@ def student_create_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def student_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -333,7 +333,7 @@ def student_user_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def student_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -345,7 +345,7 @@ def student_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def lecturer_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -357,7 +357,7 @@ def lecturer_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def admin_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -369,17 +369,22 @@ def admin_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def add_course(request):
     if request.method == 'POST':
-        name = request.POST['name']
+        form = AddCourseForm(request.POST)
+        if form.is_valid():
+            name = form.cleaned_data['name']
+            Course.objects.create(name=name)
+            messages.success(request, 'Successfully Added Course')
+            return redirect('add_course')
+        else:
+            return HttpResponseBadRequest("No symbols allowed in course name")
 
-        a = Course(name=name)
-        a.save()
-        messages.success(request, 'Successfully Added Course')
-        return redirect('add_course')
     else:
-        return render(request, 'dashboard/lecturer/add_course.html')
+        form = AddCourseForm()
+
+        return render(request, 'dashboard/lecturer/add_course.html', {'form': form})
 
 
 class ManageUserView(LoginRequiredMixin, ListView):
@@ -418,7 +423,7 @@ class DeleteUser(SuccessMessageMixin, DeleteView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def add_tutorial(request):
     courses = Course.objects.only('id', 'name')
     context = {'courses': courses}
@@ -426,7 +431,7 @@ def add_tutorial(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def post_tutorial(request):
     if request.method == 'POST':
         title = request.POST['title']
@@ -487,7 +492,7 @@ class AddCommentStudent(CreateView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def add_notes(request):
     tutorials = Tutorial.objects.only('id', 'title')
     context = {'tutorials': tutorials}
@@ -495,7 +500,7 @@ def add_notes(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
@@ -504,8 +509,8 @@ def post_notes(request):
         current_user = request.user
         user_id = current_user.id
 
-        if not pdf_file and not ppt_file:
-            return HttpResponseBadRequest("Please choose at least one file to upload.")
+        if not pdf_file or not ppt_file:
+            return HttpResponseBadRequest("Please select PDF and PPT file to be uploaded.")
 
         # Validate file types
         allowed_pdf_extensions = ['pdf']
@@ -572,7 +577,7 @@ class UpdateQuizView(UpdateView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def add_question(request, pk):
     # By filtering the quiz by the url keyword argument `pk` and by the owner, which is the logged in user,
     # we are protecting this view at the object-level. Meaning only the owner of quiz will be able to add questions
@@ -594,7 +599,7 @@ def add_question(request, pk):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def update_question(request, quiz_pk, question_pk):
     # calls the Quiz model and get object from that. If that object or model doesn't exist it raise 404 error.
     quiz = get_object_or_404(Quiz, pk=quiz_pk, owner=request.user)
