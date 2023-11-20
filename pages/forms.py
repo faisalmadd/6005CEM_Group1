@@ -18,6 +18,16 @@ class StudentRegistrationForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super(StudentRegistrationForm, self).__init__(*args, **kwargs)
 
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        return email.lower()
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not username.isalnum():  # Allow only alphanumeric characters
+            raise ValidationError(_('Username can only contain letters and numbers.'))
+        return username
+
     @transaction.atomic
     def save(self):
         user = super().save(commit=False)
@@ -37,6 +47,16 @@ class AdminStudentRegistrationForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super(AdminStudentRegistrationForm, self).__init__(*args, **kwargs)
 
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        return email.lower()
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not username.isalnum():  # Allow only alphanumeric characters
+            raise ValidationError(_('Username can only contain letters and numbers.'))
+        return username
+
     @transaction.atomic
     def save(self):
         user = super().save(commit=False)
@@ -55,6 +75,16 @@ class LecturerRegistrationForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super(LecturerRegistrationForm, self).__init__(*args, **kwargs)
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        return email.lower()
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not username.isalnum():  # Allow only alphanumeric characters
+            raise ValidationError(_('Username can only contain letters and numbers.'))
+        return username
 
     @transaction.atomic
     def save(self):
@@ -101,7 +131,6 @@ class AddCourseForm(forms.ModelForm):
         message='Course name can only contain alphanumeric characters, spaces, hyphens, and underscores.',
         code='invalid course name'
     )
-
     name = forms.CharField(
         validators=[alphanumeric_validator],
         help_text='Enter the course name(alphanumeric characters, spaces, hyphens, and underscores).',

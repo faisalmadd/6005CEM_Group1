@@ -22,6 +22,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
+from django.utils.html import escape
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -130,7 +131,8 @@ def login_view(request, *args, **kwargs):
     if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['password']
-        user = authenticate(request, username=username, password=password)
+        sanitized_username = escape(username)
+        user = authenticate(request, username=sanitized_username, password=password)
         if user is not None and user.is_active:
             auth.login(request, user)
             if user.is_admin or user.is_superuser:
