@@ -23,6 +23,7 @@ from django.http import HttpResponseBadRequest
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.utils.html import escape
+from pyclamd import ClamdAgnostic
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -519,21 +520,28 @@ def post_notes(request):
         allowed_ppt_extensions = ['ppt', 'pptx']
         max_file_size = 10 * 1024 * 1024  # 10 MB
 
+        def scan_file_for_virus(file_path):
+            clamav = ClamdAgnostic()
+            scan_result = clamav.scan_file(file_path)
+            if 'FOUND' in scan_result:
+                raise ValidationError('Virus detected in the file.')
+
         if pdf_file:
             try:
                 validate_pdf = FileExtensionValidator(allowed_extensions=allowed_pdf_extensions)
                 validate_pdf(pdf_file)
+                scan_file_for_virus(pdf_file.temporary_file_path())
             except ValidationError as e:
                 return HttpResponseBadRequest(f"Invalid PDF file: {e}")
 
             if pdf_file and pdf_file.size > max_file_size:
                 return HttpResponseBadRequest("PDF file size exceeds the limit (10 MB).")
 
-        # Validate ppt_file if it exists
         if ppt_file:
             try:
                 validate_ppt = FileExtensionValidator(allowed_extensions=allowed_ppt_extensions)
                 validate_ppt(ppt_file)
+                scan_file_for_virus(ppt_file.temporary_file_path())
             except ValidationError as e:
                 return HttpResponseBadRequest(f"Invalid PPT file: {e}")
 
