@@ -23,7 +23,7 @@ from pages.views import *
     student_dashboard, lecturer_dashboard, login_view, login_form, LecturerRegisterView, \
     AdminStudentRegisterView, ManageUserView, DeleteUser, add_course, AddQuizView, UpdateQuizView, add_question, \
     update_question, QuizListView, DeleteQuestion, DeleteQuiz, ResultsView, post_tutorial, LecturerTutorialDetail, \
-    list_tutorial, add_tutorial, AddComment, add_notes, post_notes"""
+    list_tutorial, add_tutorial, AddComment, add_notes, post_notes, AuditLogView"""
 from django.contrib.auth import views as auth_view
 
 # imports for OTP
@@ -70,6 +70,7 @@ urlpatterns = [
     path('admin_add_student/', AdminStudentRegisterView.as_view(), name='admin_add_student'),
     path('manage_users/', ManageUserView.as_view(), name='manage_users'),
     path('delete_user/<int:pk>', DeleteUser.as_view(), name='delete_user'),
+    path('log_view/', AuditLogView.as_view(), name='log_view'),
 
     # lecturer pages
     path('lecturer_dashboard/', lecturer_dashboard, name='lecturer_dashboard'),
@@ -105,6 +106,9 @@ urlpatterns = [
     path('student_profile/', student_user_profile, name="student_profile"),
     path('student_profile/create/', student_create_profile, name="student_create_profile"),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
