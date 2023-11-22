@@ -32,11 +32,11 @@
                     <span>Add Student</span></a>
                 </li>
                 <li>
-                    <a href="{% url 'manage_users' %}" class="active"><span class="las la-users"></span>
+                    <a href="{% url 'manage_users' %}"><span class="las la-users"></span>
                     <span>Manage Users</span></a>
                 </li>
                 <li>
-                    <a href="{% url 'log_view' %}"><span class="las la-clipboard"></span>
+                    <a href="{% url 'log_view' %}" class="active"><span class="las la-clipboard"></span>
                     <span>Audit Log</span></a>
                 </li>
                 <li>
@@ -85,7 +85,7 @@
                   </ol>
                   <div class="card-header" style="color: var(--main-color); font-size: 1.3rem;">
                       <i class="las la-table" style="color: var(--main-color);"></i>
-                      List Of Users
+                      Audit Log
                   </div><br>
                   {% for message in messages %}
                   <div class="alert alert-{{message.tags}}">{{message}}</div>
@@ -95,36 +95,22 @@
                               <thead>
                               <tr>
                                   <th>No</th>
-                                  <th>Username</th>
-                                  <th>Email</th>
-                                  <th>User Role</th>
-                                  <th>Delete</th>
+                                  <th>User ID</th>
+                                  <th>Date/Time</th>
+                                  <th>Description</th>
 
                               </tr>
                               </thead>
                               <tbody>
 
-                              {% if users %}
-                              {% for user in users %}
+                              {% for log in auditlog %}
                               <tr>
-                                  <td>{{ user.id }}</td>
-                                  <td>{{ user.username }}</td>
-                                  <td>{{ user.temp_decrypted_email }}</td>
-                                  <td>
-                                      {% if user.is_student == True %}
-                                      <p>Student</p>
-                                      {% elif user.is_admin or user.is_superuser == True %}
-                                      <p>Admin</p>
-                                      {% else %}
-                                      <p>Lecturer</p>
-                                      {% endif %}
-                                  </td>
-                                  <td>
-                                      <a href="{% url 'delete_user' user.pk %}">
-                                          <button type="button" class="btn" style="color: white; background: var(--main-color); height: 2rem; width: 5rem; border-radius: 1rem;"> Delete</button></a></td>
-                              </tr>
+                                  <td>{{ log.id }}</td>
+                                  <td>{{ log.user }}</td>
+                                  <td>{{ log.datetime }}</td>
+                                  <td>{{ log.desc }}</td>
+                                </tr>
                               {% endfor %}
-                              {% endif %}
                               </tbody>
                           </table>
 
