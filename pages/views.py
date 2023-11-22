@@ -13,12 +13,18 @@ from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django.views.generic import CreateView, ListView, DeleteView, UpdateView, DetailView
-from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, Course, Tutorial, Notes, Comments
+from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, Course, Tutorial, Notes, Comments, AuditLog
 from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStudentRegistrationForm, QuestionForm, \
     BaseAnswerInlineFormSet, CommentForm
 from utils.crypto_utils import encrypt_data, decrypt_data
 from django_ratelimit.decorators import ratelimit
-from django.contrib.auth.decorators import login_required 
+from django.contrib.auth.decorators import login_required, user_passes_test
+import pyotp
+from datetime import datetime, timedelta
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils.decorators import method_decorator
+
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -30,6 +36,12 @@ iv = b'Q\x85\xfe`@\xcd\xbc\xf2\x99\x13\x05qy)\x81X'
 def homepage_view(request, *args, **kwargs):
     return render(request, "home.html", {})
 
+
+def is_admin(user):
+    return user.is_authenticated and (user.is_admin or user.is_superuser)
+
+def is_lecturer(user):
+    return user.is_authenticated and (user.is_lecturer or user.is_admin or user.is_superuser)
 
 class StudentRegisterView(CreateView):
     model = User
@@ -56,6 +68,7 @@ class StudentRegisterView(CreateView):
         return redirect('home')
 
 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class LecturerRegisterView(CreateView):
     model = User
     form_class = LecturerRegistrationForm
@@ -84,6 +97,7 @@ class LecturerRegisterView(CreateView):
         return redirect('admin_dashboard')
 
 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class AdminStudentRegisterView(CreateView):
     model = User
     form_class = AdminStudentRegistrationForm
@@ -130,21 +144,137 @@ def login_view(request, *args, **kwargs):
         user = authenticate(request, username=username, password=password)
         if user is not None and user.is_active:
             auth.login(request, user)
+
+            # uncomment below code for MFA OTP
+
+            # if user.is_admin or user.is_superuser:
+            #     request.session['where_to'] = "admin_dashboard"
+            # elif user.is_lecturer:
+            #     request.session['where_to'] = "lecturer_dashboard"
+            # elif user.is_student:
+            #     request.session['where_to'] = "student_dashboard"
+            # else:
+            #     request.session['where_to'] = "login_form"
+
+            # request.session['name'] = username
+            # send_otp(request)
+            # return redirect('otp')
+
             if user.is_admin or user.is_superuser:
+                log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Admin login')
+                log.save()
                 return redirect('admin_dashboard')
             elif user.is_lecturer:
+                log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Lecturer login')
+                log.save()
                 return redirect('lecturer_dashboard')
             elif user.is_student:
+                log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Student login')
+                log.save()
                 return redirect('student_dashboard')
             else:
                 return redirect('login_form')
         else:
+            log = AuditLog(user='', datetime=datetime.now(), desc='Invalid login')
+            log.save()
             messages.info(request, "Invalid Username or Password")
             return redirect('login_form')
 
 
+def otp_view(request):
+    error_message = None
+    print(f"Error: {error_message}")
+    if request.method == 'POST':
+        otp = request.POST['otp']
+        where_to = request.session['where_to']
+
+        otp_secret_key = request.session['otp_secret_key']
+        otp_valid_date = request.session['otp_valid_date']
+
+        print(f"input otp: {otp}")
+        print(f"where to: {where_to}")
+        print(f"secret key: {otp_secret_key}")
+
+        if otp_secret_key and otp_valid_date is not None:
+            valid_date = datetime.fromisoformat(otp_valid_date)
+            if valid_date > datetime.now():
+                print(f"got date verified")
+                totp = pyotp.TOTP(otp_secret_key, interval=60)
+                if totp.verify(otp):
+
+                    del request.session['otp_secret_key']
+                    del request.session['otp_valid_date']
+
+                    print(f"got verified")
+                    return redirect(where_to)
+
+                    if where_to == "admin_dashboard":
+                        print(f"got into admin dashboard if else")
+                        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Admin login')
+                        log.save()
+                        return redirect('admin_dashboard')
+                    elif where_to == "lecturer_dashboard":
+                        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Lecturer login')
+                        log.save()
+                        return redirect('lecturer_dashboard')
+                    elif where_to == "student_dashboard":
+                        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Student login')
+                        log.save()
+                        return redirect('student_dashboard')
+                    else:
+                        return redirect('login_form')
+                else:
+                    error_message = 'Invalid One-time Password'
+            else:
+                error_message = 'One-time Password has expired'
+        else:
+            error_message = 'Something went wrong. Please try loggin in again'
+
+
+    return render(request, 'otp.html', {'error_message': error_message})
+
+
+def send_otp(request):
+    base32_key = pyotp.random_base32()
+    totp = pyotp.TOTP(base32_key, interval=60)
+    otp = totp.now()
+    request.session['otp_secret_key'] = totp.secret
+    valid_date = datetime.now() + timedelta(minutes=1)
+    request.session['otp_valid_date'] = str(valid_date)
+
+    print(f"Your one time password: {otp}")
+
+    current_user = request.user
+    user_id = current_user.id
+    current_email = current_user.email
+    current_name = current_user.username
+    print(f"This is current users: {current_user}")
+    print(f"This is users id: {user_id}")
+    print(f"This is users email: {current_email}")
+    print(f"This is user name: {current_name}")
+
+    message = "Your one time password: " + otp
+    email =  current_email
+    name = current_name
+
+    print(f"This is message: {message}")
+    print(f"This is email: {email}")
+    print(f"This is name: {name}")
+
+    if email is not None:
+        send_mail(
+            "One Time Password for " + name, # email title
+            message, # email content
+            settings.EMAIL_HOST_USER, #sender email
+            [email], # receiver email
+            fail_silently=False)
+    else:
+        print("Make sure the user has an email")
+
+
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def lecturer_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -179,6 +309,8 @@ def lecturer_create_profile(request):
                                                   first_name=encoded_first_name, email=encoded_email,
                                                   last_name=encoded_last_name, bio=encoded_bio, dob=encoded_dob,
                                                   profile_pic=profile_pic)
+        log = AuditLog(user=user_id, datetime=datetime.now(), desc='Lecturer profile created')
+        log.save()
         messages.success(request, 'Your Profile Was Created Successfully')
         return redirect('lecturer_profile')
     else:
@@ -190,7 +322,8 @@ def lecturer_create_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def lecturer_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -237,7 +370,7 @@ def lecturer_user_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def student_create_profile(request):
     if request.method == 'POST':
         first_name = request.POST['first_name']
@@ -272,6 +405,8 @@ def student_create_profile(request):
                                                   first_name=encoded_first_name, email=encoded_email,
                                                   last_name=encoded_last_name, bio=encoded_bio, dob=encoded_dob,
                                                   profile_pic=profile_pic)
+        log = AuditLog(user=user_id, datetime=datetime.now(), desc='Student profile created')
+        log.save()
         messages.success(request, 'Your Profile Was Created Successfully')
         return redirect('student_profile')
     else:
@@ -283,7 +418,7 @@ def student_create_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def student_user_profile(request):
     current_user = request.user
     user_id = current_user.id
@@ -330,7 +465,7 @@ def student_user_profile(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
 def student_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -342,7 +477,8 @@ def student_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def lecturer_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -354,7 +490,8 @@ def lecturer_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_admin, login_url='login_form')
 def admin_dashboard(request, *args, **kwargs):
     student = User.objects.filter(is_student=True).count()
     lecturer = User.objects.filter(is_lecturer=True).count()
@@ -366,19 +503,23 @@ def admin_dashboard(request, *args, **kwargs):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_course(request):
     if request.method == 'POST':
         name = request.POST['name']
 
         a = Course(name=name)
         a.save()
+        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Course created')
+        log.save()
         messages.success(request, 'Successfully Added Course')
         return redirect('add_course')
     else:
         return render(request, 'dashboard/lecturer/add_course.html')
 
 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class ManageUserView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'dashboard/admin/manage_users.html'
@@ -407,6 +548,7 @@ class ManageUserView(LoginRequiredMixin, ListView):
         return decrypted_users
 
 
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
 class DeleteUser(SuccessMessageMixin, DeleteView):
     model = User
     template_name = 'dashboard/admin/delete_user.html'
@@ -415,7 +557,8 @@ class DeleteUser(SuccessMessageMixin, DeleteView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_tutorial(request):
     courses = Course.objects.only('id', 'name')
     context = {'courses': courses}
@@ -423,7 +566,8 @@ def add_tutorial(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def post_tutorial(request):
     if request.method == 'POST':
         title = request.POST['title']
@@ -437,6 +581,8 @@ def post_tutorial(request):
         print(course_id)
         a = Tutorial(title=title, content=content, image=image, video=video, user_id=author_id, course_id=course_id)
         a.save()
+        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Tutorial added')
+        log.save()
         messages.success(request, 'Tutorial was posted successfully!')
         return redirect('add_tutorial')
     else:
@@ -446,17 +592,20 @@ def post_tutorial(request):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def list_tutorial(request):
     tutorials = Tutorial.objects.all().order_by('created_at')
     tutorials = {'tutorials': tutorials}
     return render(request, 'dashboard/lecturer/list_tutorial.html', tutorials)
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class LecturerTutorialDetail(LoginRequiredMixin, DetailView):
     model = Tutorial
     template_name = 'dashboard/lecturer/tutorial_detail.html'
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class AddComment(CreateView):
     model = Comments
     form_class = CommentForm
@@ -465,6 +614,8 @@ class AddComment(CreateView):
     def form_valid(self, form):
         form.instance.user = self.request.user
         form.instance.tutorial_id = self.kwargs['pk']
+        log = AuditLog(user=self.request.user.id, datetime=datetime.now(), desc='Lecturer comment added')
+        log.save()
         return super().form_valid(form)
 
     success_url = "/lecturer_tutorials/{tutorial_id}"
@@ -478,13 +629,16 @@ class AddCommentStudent(CreateView):
     def form_valid(self, form):
         form.instance.user = self.request.user
         form.instance.tutorial_id = self.kwargs['pk']
+        log = AuditLog(user=self.request.user.id, datetime=datetime.now(), desc='Student comment added')
+        log.save()
         return super().form_valid(form)
 
     success_url = "/student_tutorials/{tutorial_id}"
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_notes(request):
     tutorials = Tutorial.objects.only('id', 'title')
     context = {'tutorials': tutorials}
@@ -492,7 +646,8 @@ def add_notes(request):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
@@ -503,6 +658,8 @@ def post_notes(request):
 
         a = Notes(ppt_file=ppt_file, pdf_file=pdf_file, user_id=user_id, tutorial_id=tutorial_id)
         a.save()
+        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Notes added')
+        log.save()
         messages.success = (request, 'Notes Was Published Successfully')
         return redirect('add_notes')
     else:
@@ -510,6 +667,7 @@ def post_notes(request):
         return redirect('add_notes')
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class AddQuizView(CreateView):
     model = Quiz
     fields = ('name', 'course')
@@ -519,9 +677,12 @@ class AddQuizView(CreateView):
         quiz = form.save(commit=False)
         quiz.owner = self.request.user
         quiz.save()
+        log = AuditLog(user=self.request.user.id, datetime=datetime.now(), desc='Notes added')
+        log.save()
         return redirect('update_quiz', quiz.pk)
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class UpdateQuizView(UpdateView):
     model = Quiz
     fields = ('name', 'course')
@@ -539,7 +700,8 @@ class UpdateQuizView(UpdateView):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def add_question(request, pk):
     # By filtering the quiz by the url keyword argument `pk` and by the owner, which is the logged in user,
     # we are protecting this view at the object-level. Meaning only the owner of quiz will be able to add questions
@@ -553,6 +715,8 @@ def add_question(request, pk):
             question = form.save(commit=False)
             question.quiz = quiz
             question.save()
+            log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Question added')
+            log.save()
             return redirect('update_questions', quiz.pk, question.pk)
     else:
         form = QuestionForm()
@@ -561,7 +725,8 @@ def add_question(request, pk):
 
 
 @ratelimit(key='ip', rate='5/m', block=True)
-@login_required(login_url='login_form') 
+@login_required(login_url='login_form')
+@user_passes_test(is_lecturer, login_url='login_form')
 def update_question(request, quiz_pk, question_pk):
     # calls the Quiz model and get object from that. If that object or model doesn't exist it raise 404 error.
     quiz = get_object_or_404(Quiz, pk=quiz_pk, owner=request.user)
@@ -587,6 +752,8 @@ def update_question(request, quiz_pk, question_pk):
             with transaction.atomic():
                 formset.save()
                 formset.save()
+            log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Question updated')
+            log.save()
             messages.success(request, 'Question And Answers Saved Successfully')
             return redirect('update_quiz', quiz.pk)
     else:
@@ -600,6 +767,7 @@ def update_question(request, quiz_pk, question_pk):
     })
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class QuizListView(ListView):
     model = Quiz
     ordering = ('name',)
@@ -614,6 +782,7 @@ class QuizListView(ListView):
         return queryset
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class DeleteQuestion(DeleteView):
     model = Question
     context_object_name = 'question'
@@ -627,6 +796,8 @@ class DeleteQuestion(DeleteView):
 
     def delete(self, request, *args, **kwargs):
         question = self.get_object()
+        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Question deleted')
+        log.save()
         messages.success(request, 'The question was deleted successfully', question.text)
         return super().delete(request, *args, **kwargs)
 
@@ -638,6 +809,7 @@ class DeleteQuestion(DeleteView):
         return reverse('update_quiz', kwargs={'pk': question.quiz_id})
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class DeleteQuiz(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -646,6 +818,8 @@ class DeleteQuiz(DeleteView):
 
     def delete(self, request, *args, **kwargs):
         quiz = self.get_object()
+        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Quiz updated')
+        log.save()
         messages.success(request, 'The quiz %s was deleted with success!' % quiz.name)
         return super().delete(request, *args, **kwargs)
 
@@ -653,6 +827,7 @@ class DeleteQuiz(DeleteView):
         return self.request.user.quizzes.all()
 
 
+@method_decorator(user_passes_test(is_lecturer, login_url='login_form'), name='dispatch')
 class ResultsView(DeleteView):
     model = Quiz
     context_object_name = 'quiz'
@@ -775,3 +950,17 @@ def save_quiz_view(request, pk):
         else:
             messages.success(request, 'Congratulations! You completed the quiz! You scored %s points.' % (score_))
             return JsonResponse({'passed': False, 'score': score_, 'results': results})
+
+
+@method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
+class AuditLogView(ListView):
+    model = AuditLog
+    ordering = ('id',)
+    context_object_name = 'auditlog'
+    template_name = 'dashboard/admin/log_view.html'
+
+    def get_queryset(self):
+        queryset = AuditLog.objects.all()
+        for query in queryset:
+            query.datetime = query.datetime.strftime("%c")
+        return queryset

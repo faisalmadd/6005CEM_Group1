@@ -110,3 +110,8 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.user.username
+
+class AuditLog(models.Model):
+    user = models.CharField(max_length=255, default='')
+    datetime = models.DateTimeField(auto_now_add=True)
+    desc = models.TextField(default='')

@@ -23,7 +23,7 @@ from pages.views import *
     student_dashboard, lecturer_dashboard, login_view, login_form, LecturerRegisterView, \
     AdminStudentRegisterView, ManageUserView, DeleteUser, add_course, AddQuizView, UpdateQuizView, add_question, \
     update_question, QuizListView, DeleteQuestion, DeleteQuiz, ResultsView, post_tutorial, LecturerTutorialDetail, \
-    list_tutorial, add_tutorial, AddComment, add_notes, post_notes"""
+    list_tutorial, add_tutorial, AddComment, add_notes, post_notes, AuditLogView"""
 from django.contrib.auth import views as auth_view
 
 # imports for OTP
@@ -32,6 +32,9 @@ from django_otp.admin import OTPAdminSite
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp.plugins.otp_totp.admin import TOTPDeviceAdmin
 from pages.views import *
+
+from django.contrib.auth.views import LoginView
+from django_otp.forms import OTPAuthenticationForm
 
 # create OTP admin class
 class OTPAdmin(OTPAdminSite):
@@ -55,6 +58,8 @@ urlpatterns = [
     path('register/', StudentRegisterView.as_view(), name='register'),
     path('login/', login_view, name='login'),
     path('login_form/', login_form, name='login_form'),
+    path('otp/', otp_view, name='otp'),
+    #path('login_form/', LoginView.as_view(authentication_form=OTPAuthenticationForm)),
     path('logout/', auth_view.LogoutView.as_view(template_name='logout.html'), name='logout'),
     path('admin/', admin.site.urls),
     path('captcha/', include('captcha.urls')),
@@ -65,6 +70,7 @@ urlpatterns = [
     path('admin_add_student/', AdminStudentRegisterView.as_view(), name='admin_add_student'),
     path('manage_users/', ManageUserView.as_view(), name='manage_users'),
     path('delete_user/<int:pk>', DeleteUser.as_view(), name='delete_user'),
+    path('log_view/', AuditLogView.as_view(), name='log_view'),
 
     # lecturer pages
     path('lecturer_dashboard/', lecturer_dashboard, name='lecturer_dashboard'),
