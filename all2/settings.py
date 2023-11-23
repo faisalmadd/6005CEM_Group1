@@ -175,7 +175,7 @@ AES_ENCRYPTION_KEY = 'yAAcp8fmlkGS7ei19gnuWRwtLlIr/uP7bVc6KWy4ktviWJ8+cFIXRSWK0a
 
 # for session auto-logout
 AUTO_LOGOUT = {
-    'IDLE_TIME': timedelta(minutes=30),
+    'IDLE_TIME': timedelta(minutes=1),
     'REDIRECT_TO_LOGIN_IMMEDIATELY': True,
     'MESSAGE': 'The session has expired. Please login again to continue.',
 }
