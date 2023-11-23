@@ -108,6 +108,7 @@
                                         {{ message }}
                                     </div>
                                 {% endfor %}
+
                            <form action="{% url 'post_notes' %}" method="POST" enctype="multipart/form-data">
                             {% csrf_token %}
                                 <div class="form-group">
@@ -132,6 +133,10 @@
                                         <div class="col"><label>Choose PPT Notes</label>
                                             <input type="file" id="myFile" name="ppt_file" placeholder="Report Attachment" enctype="multipart/form-data"></div>
                                 </div>
+                                <div>
+                                    <div class="col"><label>Maximum File Size 10mb</label>
+                                </div>
+
 
                                 <div class="form-group">
                                     <button type="submit" class="btn btn-primary btn-lg btn-block" href="">Submit</button>

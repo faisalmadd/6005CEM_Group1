@@ -15,7 +15,7 @@ from django.urls import reverse_lazy, reverse
 from django.views.generic import CreateView, ListView, DeleteView, UpdateView, DetailView
 from .models import TakenQuiz, Profile, Quiz, Question, Answer, Student, User, Course, Tutorial, Notes, Comments, AuditLog
 from .forms import StudentRegistrationForm, LecturerRegistrationForm, AdminStudentRegistrationForm, QuestionForm, \
-    BaseAnswerInlineFormSet, CommentForm
+    BaseAnswerInlineFormSet, CommentForm, AddCourseForm
 from utils.crypto_utils import encrypt_data, decrypt_data
 from django_ratelimit.decorators import ratelimit
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -24,7 +24,12 @@ from datetime import datetime, timedelta
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.decorators import method_decorator
-
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseBadRequest
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
+from django.utils.html import escape
+from pyclamd import ClamdAgnostic
 
 # Encryption/Decryption AES Key & Initialization Vector
 key = b'\x16sI\x8f9\x05\x12kKdf\x90\xe55\xa2\xbcrd\x94Z\tP?\xa5\xe2l\xa9\x11\xc6&\xab\x1b'
@@ -150,7 +155,8 @@ def login_view(request, *args, **kwargs):
     if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['password']
-        user = authenticate(request, username=username, password=password)
+        sanitized_username = escape(username)
+        user = authenticate(request, username=sanitized_username, password=password)
         if user is not None and user.is_active:
             auth.login(request, user)
 
@@ -516,16 +522,22 @@ def admin_dashboard(request, *args, **kwargs):
 @user_passes_test(is_lecturer, login_url='login_form')
 def add_course(request):
     if request.method == 'POST':
-        name = request.POST['name']
-
-        a = Course(name=name)
-        a.save()
-        log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Course created')
-        log.save()
-        messages.success(request, 'Successfully Added Course')
-        return redirect('add_course')
+        form = AddCourseForm(request.POST)
+        if form.is_valid():
+            name = form.cleaned_data['name']
+            Course.objects.create(name=name)
+            a = Course(name=name)
+            a.save()
+            log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Course created')
+            log.save()
+            messages.success(request, 'Successfully Added Course')
+            return redirect('add_course')
+        else:
+            return HttpResponseBadRequest("No symbols allowed in course name")
     else:
-        return render(request, 'dashboard/lecturer/add_course.html')
+        form = AddCourseForm()
+
+        return render(request, 'dashboard/lecturer/add_course.html', {'form': form})
 
 
 @method_decorator(user_passes_test(is_admin, login_url='login_form'), name='dispatch')
@@ -660,12 +672,49 @@ def add_notes(request):
 def post_notes(request):
     if request.method == 'POST':
         tutorial_id = request.POST['tutorial_id']
-        pdf_file = request.FILES['pdf_file']
-        ppt_file = request.FILES['ppt_file']
+        pdf_file = request.FILES.get('pdf_file')
+        ppt_file = request.FILES.get('ppt_file')
         current_user = request.user
         user_id = current_user.id
 
+        if not pdf_file or not ppt_file:
+            return HttpResponseBadRequest("Please select PDF and PPT file to be uploaded.")
+
+        # Validate file types
+        allowed_pdf_extensions = ['pdf']
+        allowed_ppt_extensions = ['ppt', 'pptx']
+        max_file_size = 10 * 1024 * 1024  # 10 MB
+
+        def scan_file_for_virus(file_path):
+            clamav = ClamdAgnostic()
+            scan_result = clamav.scan_file(file_path)
+            if 'FOUND' in scan_result:
+                raise ValidationError('Virus detected in the file.')
+
+        if pdf_file:
+            try:
+                validate_pdf = FileExtensionValidator(allowed_extensions=allowed_pdf_extensions)
+                validate_pdf(pdf_file)
+                scan_file_for_virus(pdf_file.temporary_file_path())
+            except ValidationError as e:
+                return HttpResponseBadRequest(f"Invalid PDF file: {e}")
+
+            if pdf_file and pdf_file.size > max_file_size:
+                return HttpResponseBadRequest("PDF file size exceeds the limit (10 MB).")
+
+        if ppt_file:
+            try:
+                validate_ppt = FileExtensionValidator(allowed_extensions=allowed_ppt_extensions)
+                validate_ppt(ppt_file)
+                scan_file_for_virus(ppt_file.temporary_file_path())
+            except ValidationError as e:
+                return HttpResponseBadRequest(f"Invalid PPT file: {e}")
+
+            if ppt_file and ppt_file.size > max_file_size:
+                return HttpResponseBadRequest("PPT file size exceeds the limit (10 MB).")
+
         a = Notes(ppt_file=ppt_file, pdf_file=pdf_file, user_id=user_id, tutorial_id=tutorial_id)
+
         a.save()
         log = AuditLog(user=request.user.id, datetime=datetime.now(), desc='Notes added')
         log.save()
@@ -735,6 +784,7 @@ def add_question(request, pk):
 
 @ratelimit(key='ip', rate='5/m', block=True)
 @login_required(login_url='login_form')
+
 @user_passes_test(is_lecturer, login_url='login_form')
 def update_question(request, quiz_pk, question_pk):
     # calls the Quiz model and get object from that. If that object or model doesn't exist it raise 404 error.

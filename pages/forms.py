@@ -3,6 +3,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.core.validators import RegexValidator
 
 from pages.models import *
 
@@ -16,6 +17,16 @@ class StudentRegistrationForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super(StudentRegistrationForm, self).__init__(*args, **kwargs)
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        return email.lower()
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not all(char.isalnum() or char in '@.+_- ' for char in username):  # Allow only alphanumeric characters
+            raise ValidationError('Username can only contain letters, numbers, @, ., +, -, and _.')
+        return username
 
     @transaction.atomic
     def save(self):
@@ -36,6 +47,16 @@ class AdminStudentRegistrationForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super(AdminStudentRegistrationForm, self).__init__(*args, **kwargs)
 
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        return email.lower()
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not all(char.isalnum() or char in '@.+_- ' for char in username):  # Allow only alphanumeric characters
+            raise ValidationError('Username can only contain letters, numbers, @, ., +, -, and _.')
+        return username
+
     @transaction.atomic
     def save(self):
         user = super().save(commit=False)
@@ -55,6 +76,16 @@ class LecturerRegistrationForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super(LecturerRegistrationForm, self).__init__(*args, **kwargs)
 
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        return email.lower()
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if not all(char.isalnum() or char in '@.+_- ' for char in username):  # Allow only alphanumeric characters
+            raise ValidationError('Username can only contain letters, numbers, @, ., +, -, and _.')
+        return username
+
     @transaction.atomic
     def save(self):
         user = super().save(commit=False)
@@ -67,7 +98,7 @@ class LecturerRegistrationForm(UserCreationForm):
 class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
-        fields = ('text', )
+        fields = ('text',)
 
 
 class BaseAnswerInlineFormSet(forms.BaseInlineFormSet):
@@ -87,8 +118,24 @@ class BaseAnswerInlineFormSet(forms.BaseInlineFormSet):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comments
-        fields = ('content', )
+        fields = ('content',)
 
         widgets = {
             'content': forms.Textarea(attrs={'class': 'form-control'}),
         }
+
+
+class AddCourseForm(forms.ModelForm):
+    alphanumeric_validator = RegexValidator(
+        regex=r'^[a-zA-Z0-9_ -]+$',
+        message='Course name can only contain alphanumeric characters, spaces, hyphens, and underscores.',
+        code='invalid course name'
+    )
+    name = forms.CharField(
+        validators=[alphanumeric_validator],
+        help_text='Enter the course name(alphanumeric characters, spaces, hyphens, and underscores).',
+    )
+
+    class Meta:
+        model = Course
+        fields = ['name']
