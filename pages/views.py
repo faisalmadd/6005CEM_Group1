@@ -64,6 +64,9 @@ class StudentRegisterView(CreateView):
         print('Encoded Data:', user.email)  # Encoded data to be stored in database
         user.save()
 
+        log = AuditLog(user='', datetime=datetime.now(), desc='Student account created')
+        log.save()
+
         messages.success(self.request, f'Hi {user.username}, your account was created successfully!')
         return redirect('home')
 
@@ -91,6 +94,9 @@ class LecturerRegisterView(CreateView):
 
         decrypted_data = decrypt_data(encrypted_email, key, iv)
         print("Decrypted Data:", decrypted_data)
+
+        log = AuditLog(user=self.request.user.id, datetime=datetime.now(), desc='Admin create lecturer account')
+        log.save()
 
         messages.success(self.request, f'{user.username} account was created successfully!')
 
@@ -120,6 +126,9 @@ class AdminStudentRegisterView(CreateView):
 
         decrypted_data = decrypt_data(encrypted_email, key, iv)
         print("Decrypted Data:", decrypted_data)
+
+        log = AuditLog(user=self.request.user.id, datetime=datetime.now(), desc='Admin create student account')
+        log.save()
 
         messages.success(self.request, f'{user.username} account was created successfully!')
 
